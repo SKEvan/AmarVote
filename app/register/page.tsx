@@ -21,12 +21,63 @@ export default function RegisterPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [errors, setErrors] = useState({
+    email: '',
+    phone: '',
+  });
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      return 'Email is required';
+    }
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., example@email.com)';
+    }
+    return '';
+  };
+
+  const validatePhone = (phone: string) => {
+    // Remove any non-digit characters for validation
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (!cleanPhone) {
+      return 'Phone number is required';
+    }
+    
+    if (cleanPhone.length !== 11) {
+      return 'Phone number must be exactly 11 digits';
+    }
+    
+    // Bangladesh mobile operator prefixes
+    const validPrefixes = ['013', '014', '015', '016', '017', '018', '019'];
+    const prefix = cleanPhone.substring(0, 3);
+    
+    if (!validPrefixes.includes(prefix)) {
+      return 'Please enter a valid Bangladesh mobile number (013, 014, 015, 016, 017, 018, or 019)';
+    }
+    
+    return '';
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    // Real-time validation
+    if (name === 'email') {
+      const emailError = validateEmail(value);
+      setErrors(prev => ({ ...prev, email: emailError }));
+    }
+    
+    if (name === 'phone') {
+      const phoneError = validatePhone(value);
+      setErrors(prev => ({ ...prev, phone: phoneError }));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +116,22 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate email
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      setErrors(prev => ({ ...prev, email: emailError }));
+      alert('Please fix the errors before submitting');
+      return;
+    }
+    
+    // Validate phone
+    const phoneError = validatePhone(formData.phone);
+    if (phoneError) {
+      setErrors(prev => ({ ...prev, phone: phoneError }));
+      alert('Please fix the errors before submitting');
+      return;
+    }
     
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match!');
@@ -137,9 +204,19 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="email@example.com"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent ${
+                      errors.email 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : 'border-gray-200 focus:ring-red-500'
+                    }`}
                     required
                   />
+                  {errors.email && (
+                    <p className="mt-2 text-sm text-red-600 flex items-start gap-1">
+                      <span className="text-red-600 font-bold">⚠</span>
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
@@ -150,10 +227,24 @@ export default function RegisterPage() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="+880 1XXX-XXXXXX"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="01XXXXXXXXX"
+                    maxLength={11}
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent ${
+                      errors.phone 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : 'border-gray-200 focus:ring-red-500'
+                    }`}
                     required
                   />
+                  {errors.phone && (
+                    <p className="mt-2 text-sm text-red-600 flex items-start gap-1">
+                      <span className="text-red-600 font-bold">⚠</span>
+                      {errors.phone}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Valid operators: 013, 014, 015, 016, 017, 018, 019
+                  </p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
