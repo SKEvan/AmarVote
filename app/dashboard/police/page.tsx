@@ -55,13 +55,16 @@ export default function PoliceDashboard() {
             Enforcement Menu
           </h2>
           <div className="space-y-3">
-            <button className="w-full bg-green-50 border-2 border-green-500 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-3">
+            <Link 
+              href="/dashboard/police/map"
+              className="w-full bg-green-50 border-2 border-green-500 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-3"
+            >
               <MapPin className="w-5 h-5" />
               <div className="text-left">
                 <p className="font-semibold">View Map</p>
                 <p className="text-sm text-green-600">Live incidents</p>
               </div>
-            </button>
+            </Link>
             <Link 
               href="/dashboard/police/profile"
               className="w-full bg-blue-50 border-2 border-blue-500 text-blue-700 px-4 py-3 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-3"
