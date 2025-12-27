@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog, Bell, X } from 'lucide-react';
+import UserProfileControls from '@/components/UserProfileControls';
 
 // Mock notifications data
 const mockNotifications = [
@@ -84,7 +85,7 @@ export default function PoliceDashboard() {
   };
 
   const handleViewDetails = (incidentId: string) => {
-    alert(`Viewing details for ${incidentId}`);
+    router.push(`/dashboard/admin/incidents/${incidentId}`);
   };
 
   const handleViewMap = (incidentId: string) => {
@@ -204,22 +205,7 @@ export default function PoliceDashboard() {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-              <User className="w-6 h-6" />
-            </div>
-            <div className="text-right">
-              <p className="font-semibold">Officer Rahman - Dhaka Metro</p>
-              <p className="text-sm text-red-100">Law Enforcement</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
-          >
-            <LogOut className="w-5 h-5" />
-            Logout
-          </button>
+          <UserProfileControls role="police" />
         </div>
       </div>
 
@@ -373,11 +359,11 @@ export default function PoliceDashboard() {
                     Acknowledge
                   </button>
                   <button
-                    onClick={() => handleViewMap('INC-001')}
+                    onClick={() => handleViewDetails('INC-001')}
                     className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
                   >
                     <MapPin className="w-4 h-4" />
-                    View Map
+                    View Details
                   </button>
                 </div>
               </div>
@@ -430,11 +416,11 @@ export default function PoliceDashboard() {
                     Acknowledge
                   </button>
                   <button
-                    onClick={() => handleViewMap('INC-004')}
+                    onClick={() => handleViewDetails('INC-004')}
                     className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
                   >
                     <MapPin className="w-4 h-4" />
-                    View Map
+                    View Details
                   </button>
                 </div>
               </div>
