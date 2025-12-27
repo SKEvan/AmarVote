@@ -1,9 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Upload, X, Eye, Download } from 'lucide-react';
+
+// Bangladesh Districts and Thanas
+const districtThanaMap: Record<string, string[]> = {
+  'Dhaka': ['Adabor', 'Badda', 'Banani', 'Bangshal', 'Cantonment', 'Chackbazar', 'Darussalam', 'Demra', 'Dhanmondi', 'Gendaria', 'Gulshan', 'Hazaribagh', 'Jatrabari', 'Kafrul', 'Kalabagan', 'Kamrangirchar', 'Khilgaon', 'Khilkhet', 'Kotwali', 'Lalbagh', 'Mirpur', 'Mohammadpur', 'Motijheel', 'Mugda', 'New Market', 'Pallabi', 'Paltan', 'Ramna', 'Rampura', 'Sabujbagh', 'Shah Ali', 'Shahbag', 'Shahjahanpur', 'Sher-e-Bangla Nagar', 'Shyampur', 'Sutrapur', 'Tejgaon', 'Tejgaon I/A', 'Turag', 'Uttara', 'Uttar Khan', 'Vatara', 'Wari'],
+  'Chittagong': ['Akbarshah', 'Bandar', 'Bayezid', 'Chandgaon', 'Chawkbazar', 'Double Mooring', 'EPZ', 'Halisohor', 'Khulshi', 'Kotwali', 'Kulshi', 'Panchlaish', 'Pahartali', 'Patenga', 'Sadarghat'],
+  'Rajshahi': ['Boalia', 'Chandrima', 'Motihar', 'Rajpara', 'Shah Makhdum'],
+  'Khulna': ['Aranghata', 'Daulatpur', 'Khalishpur', 'Khan Jahan Ali', 'Kotwali', 'Labanchora', 'Sonadanga'],
+  'Sylhet': ['Airport', 'Jalalabad', 'Kotwali', 'Moglabazar', 'Osmani Nagar', 'South Surma'],
+  'Barisal': ['Barisal Kotwali', 'Airport', 'Bandartila', 'Kawnia', 'Nathullabad'],
+  'Rangpur': ['Kotwali', 'Mithapukur', 'Pirganj', 'Rangpur Sadar'],
+  'Mymensingh': ['Kotwali', 'Muktagacha', 'Mymensingh Sadar'],
+  'Comilla': ['Comilla Adarsha Sadar', 'Comilla Kotwali', 'Laksam', 'Daudkandi'],
+  'Gazipur': ['Gazipur Sadar', 'Kaliakair', 'Kaliganj', 'Kapasia', 'Sreepur', 'Tongi'],
+  'Narayanganj': ['Araihazar', 'Bandar', 'Narayanganj Sadar', 'Rupganj', 'Siddirganj', 'Sonargaon'],
+  'Tangail': ['Tangail Sadar', 'Basail', 'Delduar', 'Ghatail', 'Kalihati', 'Madhupur'],
+};
+
+// Law Enforcement Ranks
+const lawEnforcementRanks = {
+  'Police': ['Constable', 'Naik', 'Sergeant', 'Sub-Inspector (SI)', 'Inspector', 'Additional Superintendent (ASP)', 'Superintendent (SP)', 'Additional Deputy Inspector General (Addl. DIG)', 'Deputy Inspector General (DIG)', 'Additional Inspector General (Addl. IG)', 'Inspector General (IG)'],
+  'Army': ['Sepoy', 'Lance Naik', 'Naik', 'Havildar', 'Naib Subedar', 'Subedar', 'Subedar Major', 'Second Lieutenant', 'Lieutenant', 'Captain', 'Major', 'Lieutenant Colonel', 'Colonel', 'Brigadier General', 'Major General', 'Lieutenant General', 'General'],
+  'Navy': ['Seaman', 'Leading Seaman', 'Petty Officer', 'Chief Petty Officer', 'Master Chief Petty Officer', 'Sub-Lieutenant', 'Lieutenant', 'Lieutenant Commander', 'Commander', 'Captain', 'Commodore', 'Rear Admiral', 'Vice Admiral', 'Admiral'],
+  'Air Force': ['Aircraftman', 'Leading Aircraftman', 'Corporal', 'Sergeant', 'Flight Sergeant', 'Warrant Officer', 'Pilot Officer', 'Flying Officer', 'Flight Lieutenant', 'Squadron Leader', 'Wing Commander', 'Group Captain', 'Air Commodore', 'Air Vice Marshal', 'Air Marshal', 'Air Chief Marshal'],
+  'Ansar': ['Ansar Member', 'Naik', 'Sergeant', 'Platoon Commander', 'Company Commander', 'Battalion Commander', 'Deputy Director', 'Director'],
+  'BGB (Border Guard Bangladesh)': ['Sepoy', 'Naik', 'Havildar', 'Naib Subedar', 'Subedar', 'Subedar Major', 'Second Lieutenant', 'Lieutenant', 'Captain', 'Major', 'Lieutenant Colonel', 'Colonel', 'Brigadier General', 'Major General', 'Lieutenant General', 'Director General']
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +51,24 @@ export default function RegisterPage() {
     email: '',
     phone: '',
   });
+  const [showCustomThana, setShowCustomThana] = useState(false);
+  const [customThana, setCustomThana] = useState('');
+
+  // Get available thanas based on selected district
+  const availableThanas = useMemo(() => {
+    return formData.district ? districtThanaMap[formData.district] || [] : [];
+  }, [formData.district]);
+
+  // Get all ranks from all forces
+  const allRanks = useMemo(() => {
+    const ranks: string[] = [];
+    Object.entries(lawEnforcementRanks).forEach(([force, rankList]) => {
+      rankList.forEach(rank => {
+        ranks.push(`${force} - ${rank}`);
+      });
+    });
+    return ranks;
+  }, []);
 
   const validateEmail = (email: string) => {
     if (!email) {
@@ -109,12 +153,31 @@ export default function RegisterPage() {
     return '';
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    setFormData({
-      ...formData,
-      [name]: value,
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // If district changes, reset posted station and custom thana
+      if (name === 'district') {
+        newData.postedStation = '';
+        setShowCustomThana(false);
+        setCustomThana('');
+      }
+      
+      // If posted station is "Other", show custom input
+      if (name === 'postedStation') {
+        if (value === 'Other') {
+          setShowCustomThana(true);
+          newData.postedStation = '';
+        } else {
+          setShowCustomThana(false);
+          setCustomThana('');
+        }
+      }
+      
+      return newData;
     });
 
     // Real-time validation
@@ -127,6 +190,12 @@ export default function RegisterPage() {
       const phoneError = validatePhone(value);
       setErrors(prev => ({ ...prev, phone: phoneError }));
     }
+  };
+
+  const handleCustomThanaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomThana(value);
+    setFormData(prev => ({ ...prev, postedStation: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,45 +390,103 @@ export default function RegisterPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Posted Station <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="postedStation"
-                    value={formData.postedStation}
-                    onChange={handleChange}
-                    placeholder="Enter posted station name"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">
                     District <span className="text-red-600">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="district"
                     value={formData.district}
                     onChange={handleChange}
-                    placeholder="Enter district"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
-                  />
+                  >
+                    <option value="">Select District</option>
+                    {Object.keys(districtThanaMap).sort().map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">
+                    Posted Station (Thana) <span className="text-red-600">*</span>
+                  </label>
+                  {!showCustomThana ? (
+                    <>
+                      <select
+                        name="postedStation"
+                        value={formData.postedStation}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        required
+                        disabled={!formData.district}
+                      >
+                        <option value="">
+                          {formData.district ? 'Select Thana' : 'Select District First'}
+                        </option>
+                        {availableThanas.map((thana) => (
+                          <option key={thana} value={thana}>
+                            {thana}
+                          </option>
+                        ))}
+                        {formData.district && (
+                          <option value="Other" className="font-semibold text-blue-600">
+                            ✏️ Other (Type Manually)
+                          </option>
+                        )}
+                      </select>
+                      {!formData.district && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Please select a district first
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={customThana}
+                        onChange={handleCustomThanaChange}
+                        placeholder="Enter your thana name"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomThana(false);
+                          setCustomThana('');
+                          setFormData(prev => ({ ...prev, postedStation: '' }));
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        ← Back to dropdown
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-gray-700 font-medium mb-2">
                     Rank <span className="text-red-600">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="rank"
                     value={formData.rank}
                     onChange={handleChange}
-                    placeholder="Enter your rank"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
-                  />
+                  >
+                    <option value="">Select Your Rank</option>
+                    {Object.entries(lawEnforcementRanks).map(([force, ranks]) => (
+                      <optgroup key={force} label={force}>
+                        {ranks.map((rank) => (
+                          <option key={`${force}-${rank}`} value={`${force} - ${rank}`}>
+                            {rank}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
