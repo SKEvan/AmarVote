@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Upload, X, Eye } from 'lucide-react';
+import { ArrowLeft, Users, Upload, X, Eye, Download } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -49,6 +49,17 @@ export default function RegisterPage() {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+    }
+  };
+
+  const handleDownloadFile = () => {
+    if (selectedFile && previewUrl) {
+      const link = document.createElement('a');
+      link.href = previewUrl;
+      link.download = selectedFile.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -343,8 +354,16 @@ export default function RegisterPage() {
                     </div>
                   </div>
                   
-                  {/* Change File Button */}
-                  <div className="mt-4 text-center">
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      type="button"
+                      onClick={handleDownloadFile}
+                      className="inline-flex items-center justify-center bg-green-600 text-white font-semibold py-2 px-6 rounded-xl hover:bg-green-700 transition-colors duration-200"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download File
+                    </button>
                     <input
                       type="file"
                       id="fileUploadReplace"
@@ -354,7 +373,7 @@ export default function RegisterPage() {
                     />
                     <label
                       htmlFor="fileUploadReplace"
-                      className="inline-block bg-white border-2 border-red-600 text-red-600 font-semibold py-2 px-6 rounded-xl hover:bg-red-50 transition-colors duration-200 cursor-pointer"
+                      className="inline-flex items-center justify-center bg-white border-2 border-red-600 text-red-600 font-semibold py-2 px-6 rounded-xl hover:bg-red-50 transition-colors duration-200 cursor-pointer"
                     >
                       Change File
                     </label>
