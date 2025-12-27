@@ -33,7 +33,15 @@ export default function LoginPage() {
     const selectedRole = validCredentials[role as keyof typeof validCredentials];
     
     if (selectedRole && username === selectedRole.username && password === selectedRole.password) {
-      // Successful login - redirect to role-specific dashboard
+      // Successful login - persist minimal user info and redirect
+      try {
+        const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
+        const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+        localStorage.setItem('user', JSON.stringify({ name: displayName, role: displayRole, avatar: '' }));
+      } catch (e) {
+        // ignore storage errors
+      }
+
       router.push(selectedRole.redirect);
     } else {
       alert('Invalid credentials. Please check your username, password, and selected role.');
