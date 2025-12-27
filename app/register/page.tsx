@@ -27,13 +27,62 @@ export default function RegisterPage() {
   });
 
   const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
       return 'Email is required';
     }
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address (e.g., example@email.com)';
+    
+    // Check if email contains @
+    if (!email.includes('@')) {
+      return 'Email must contain @ symbol';
     }
+    
+    // Additional checks for common mistakes
+    if (email.includes('..')) {
+      return 'Email cannot contain consecutive dots';
+    }
+    
+    if (email.startsWith('.') || email.includes('@.')) {
+      return 'Email cannot start with a dot or have dot immediately after @';
+    }
+    
+    if (email.startsWith('@')) {
+      return 'Email must have username before @ symbol';
+    }
+    
+    const [username, domain] = email.split('@');
+    
+    if (!username || username.length < 1) {
+      return 'Email must have username before @ symbol';
+    }
+    
+    if (!domain || domain.length < 3) {
+      return 'Please enter a valid email domain (e.g., gmail.com)';
+    }
+    
+    if (!/^[a-zA-Z0-9]/.test(username)) {
+      return 'Email must start with a letter or number';
+    }
+    
+    // Check if domain has a dot
+    if (!domain.includes('.')) {
+      return 'Email domain must contain a dot (e.g., gmail.com)';
+    }
+    
+    // More strict email validation
+    const emailRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+    
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., user123@gmail.com)';
+    }
+    
+    // Check domain extension length (at least 2 characters after last dot)
+    const domainParts = domain.split('.');
+    const extension = domainParts[domainParts.length - 1];
+    
+    if (extension.length < 2) {
+      return 'Email domain extension must be at least 2 characters (e.g., .com, .bd)';
+    }
+    
     return '';
   };
 
