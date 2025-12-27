@@ -59,19 +59,38 @@ export default function Home() {
           </Link>
 
           {/* Law Enforcement Card */}
-          <Link href="/login?role=police" className="block">
-            <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 p-8 text-center cursor-pointer group">
-              <div className="w-20 h-20 rounded-full bg-red-100 mx-auto mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <Users className="w-10 h-10 text-role-police" strokeWidth={2} />
-              </div>
-              <h3 className="text-xl font-semibold text-role-police mb-3">
-                Law Enforcement
-              </h3>
-              <p className="text-gray-500">
-                Receive alerts and respond to incidents
-              </p>
+          <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300 p-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-red-100 mx-auto mb-6 flex items-center justify-center">
+              <Users className="w-10 h-10 text-role-police" strokeWidth={2} />
             </div>
-          </Link>
+            <h3 className="text-xl font-semibold text-role-police mb-3">
+              Law Enforcement
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Receive alerts and respond to incidents
+            </p>
+            
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Link href="/login?role=police">
+                <button className="w-full bg-gradient-to-r from-pink-500 to-rose-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-pink-600 hover:to-rose-700 transition-all duration-200 flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  Enforcement Login
+                </button>
+              </Link>
+              
+              <Link href="/register">
+                <button className="w-full border-2 border-rose-600 text-rose-600 font-semibold py-3 px-4 rounded-lg hover:bg-rose-50 transition-all duration-200 flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  Apply Now
+                </button>
+              </Link>
+            </div>
+          </div>
 
         </div>
 
