@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon } from 'lucide-react';
+import Link from 'next/link';
+import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog } from 'lucide-react';
 
 export default function PoliceDashboard() {
   const router = useRouter();
@@ -53,13 +54,25 @@ export default function PoliceDashboard() {
           <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b border-gray-200">
             Enforcement Menu
           </h2>
-          <button className="w-full bg-green-50 border-2 border-green-500 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-3">
-            <MapPin className="w-5 h-5" />
-            <div className="text-left">
-              <p className="font-semibold">View Map</p>
-              <p className="text-sm text-green-600">Live incidents</p>
-            </div>
-          </button>
+          <div className="space-y-3">
+            <button className="w-full bg-green-50 border-2 border-green-500 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-3">
+              <MapPin className="w-5 h-5" />
+              <div className="text-left">
+                <p className="font-semibold">View Map</p>
+                <p className="text-sm text-green-600">Live incidents</p>
+              </div>
+            </button>
+            <Link 
+              href="/dashboard/police/profile"
+              className="w-full bg-blue-50 border-2 border-blue-500 text-blue-700 px-4 py-3 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-3"
+            >
+              <UserCog className="w-5 h-5" />
+              <div className="text-left">
+                <p className="font-semibold">Edit Profile</p>
+                <p className="text-sm text-blue-600">Update your info</p>
+              </div>
+            </Link>
+          </div>
         </div>
 
         {/* Main Content */}
