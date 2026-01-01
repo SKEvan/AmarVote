@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ShieldIcon from '@/components/ShieldIcon';
 import UserProfileControls from '@/components/UserProfileControls';
@@ -19,12 +19,85 @@ import {
   FileCheck,
   Network,
   Menu,
-  X
+  X,
+  Lock,
+  Unlock,
+  Vote
 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
+
+  // Load vote submission status from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('voteSubmissionEnabled');
+    if (stored !== null) {
+      setVoteSubmissionEnabled(stored === 'true');
+    }
+  }, []);
+
+  // Toggle vote submission and save to localStorage
+  const toggleVoteSubmission = () => {
+    const newValue = !voteSubmissionEnabled;
+    setVoteSubmissionEnabled(newValue);
+    localStorage.setItem('voteSubmissionEnabled', String(newValue));
+    alert(newValue 
+      ? 'Vote submission has been ENABLED. Presiding officers can now submit vote counts.' 
+      : 'Vote submission has been DISABLED. Presiding officers cannot submit vote counts.'
+    );
+  };
+
+  // State for reported incidents from officers
+  const [officerIncidents, setOfficerIncidents] = useState<any[]>([]);
+
+  // State for correction requests
+  const [correctionRequest, setCorrectionRequest] = useState(false);
+
+  // Load incidents from localStorage
+  useEffect(() => {
+    const loadIncidents = () => {
+      const stored = localStorage.getItem('reportedIncidents');
+      if (stored) {
+        setOfficerIncidents(JSON.parse(stored));
+      }
+    };
+    loadIncidents();
+    // Check for new incidents every 3 seconds
+    const interval = setInterval(loadIncidents, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check for correction requests
+  useEffect(() => {
+    const checkCorrectionRequest = () => {
+      const requested = localStorage.getItem('correctionRequested');
+      setCorrectionRequest(requested === 'true');
+    };
+    checkCorrectionRequest();
+    const interval = setInterval(checkCorrectionRequest, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Approve correction request
+  const approveCorrectionRequest = () => {
+    if (confirm('Are you sure you want to approve this correction request? The officer will be able to resubmit their vote counts.')) {
+      localStorage.setItem('voteSubmissionReset', 'true');
+      localStorage.removeItem('correctionRequested');
+      setCorrectionRequest(false);
+      alert('Correction approved! The presiding officer can now resubmit vote counts.');
+    }
+  };
+
+  // Reject correction request
+  const rejectCorrectionRequest = () => {
+    if (confirm('Are you sure you want to reject this correction request?')) {
+      localStorage.removeItem('correctionRequested');
+      setCorrectionRequest(false);
+      alert('Correction request rejected.');
+    }
+  };
 
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout?')) {
@@ -43,7 +116,8 @@ export default function AdminDashboard() {
     { party: 'PND', votes: 2800, color: '#6b7280' },
   ];
 
-  const recentIncidents = [
+  // Combine mock incidents with officer-reported incidents
+  const mockIncidents = [
     {
       id: 'INC-001',
       severity: 'HIGH',
@@ -72,6 +146,21 @@ export default function AdminDashboard() {
       location: 'Banasree Model School',
       status: 'resolved',
     },
+  ];
+
+  // Combine mock incidents with officer-reported incidents
+  const recentIncidents = [
+    // Add officer-reported incidents first (newest)
+    ...officerIncidents.map(inc => ({
+      id: inc.id,
+      severity: inc.severity.toUpperCase(),
+      title: inc.description,
+      location: inc.location,
+      status: 'pending',
+      isNew: true,
+    })),
+    // Then add mock incidents
+    ...mockIncidents,
   ];
 
   const topPollingCenters = [
@@ -117,16 +206,80 @@ export default function AdminDashboard() {
         <main className="flex-1 overflow-auto p-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {/* Total Incidents */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            {/* Vote Submission Control - NEW */}
+            <div className={`rounded-lg border-2 p-6 transition-all ${
+              voteSubmissionEnabled 
+                ? 'bg-green-50 border-green-300' 
+                : 'bg-red-50 border-red-300'
+            }`}>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-blue-600" />
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                  voteSubmissionEnabled ? 'bg-green-100' : 'bg-red-100'
+                }`}>
+                  {voteSubmissionEnabled 
+                    ? <Unlock className="w-6 h-6 text-green-600" />
+                    : <Lock className="w-6 h-6 text-red-600" />
+                  }
                 </div>
-                <span className="text-3xl font-bold text-blue-600">5</span>
+                <button
+                  onClick={toggleVoteSubmission}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    voteSubmissionEnabled
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}
+                >
+                  {voteSubmissionEnabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+              <h3 className="text-sm font-medium text-gray-700">Vote Submission</h3>
+              <p className={`text-xs font-semibold ${
+                voteSubmissionEnabled ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {voteSubmissionEnabled ? '✓ Enabled for Officers' : '✗ Locked'}
+              </p>
+            </div>
+
+            {/* Correction Request Card - Shows only when there's a request */}
+            {correctionRequest && (
+              <div className="bg-orange-50 rounded-lg border-2 border-orange-400 p-6 animate-pulse">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                    <Vote className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">NEW</span>
+                </div>
+                <h3 className="text-sm font-semibold text-orange-800 mb-1">Correction Request</h3>
+                <p className="text-xs text-orange-600 mb-3">Officer requests to resubmit votes</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={approveCorrectionRequest}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold py-1.5 rounded transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={rejectCorrectionRequest}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-1.5 rounded transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Total Incidents */}
+            <div className={`bg-white rounded-lg border p-6 ${officerIncidents.length > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${officerIncidents.length > 0 ? 'bg-red-100' : 'bg-blue-100'}`}>
+                  <FileText className={`w-6 h-6 ${officerIncidents.length > 0 ? 'text-red-600' : 'text-blue-600'}`} />
+                </div>
+                <span className={`text-3xl font-bold ${officerIncidents.length > 0 ? 'text-red-600' : 'text-blue-600'}`}>{recentIncidents.length}</span>
               </div>
               <h3 className="text-sm font-medium text-gray-700">Total Incidents</h3>
-              <p className="text-xs text-gray-500">2 pending, 2 responded</p>
+              <p className="text-xs text-gray-500">
+                {officerIncidents.length > 0 ? `🚨 ${officerIncidents.length} NEW from officers` : '4 from mock data'}
+              </p>
             </div>
 
             {/* Red Zone Areas */}
@@ -208,21 +361,35 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Incidents */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Incidents</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Recent Incidents</h2>
+                {officerIncidents.length > 0 && (
+                  <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                    {officerIncidents.length} NEW
+                  </span>
+                )}
+              </div>
               
               <div className="space-y-3">
-                {recentIncidents.slice(0, 4).map((incident) => (
-                  <div key={incident.id} onClick={() => router.push(`/dashboard/admin/incidents/${incident.id}`)} className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                {recentIncidents.slice(0, 6).map((incident: any) => (
+                  <div key={incident.id} onClick={() => router.push(`/dashboard/admin/incidents/${incident.id}`)} className={`border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors ${incident.isNew ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
                     <div className="flex items-start justify-between mb-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        incident.severity === 'CRITICAL' 
-                          ? 'bg-red-100 text-red-700' 
-                          : incident.severity === 'HIGH'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {incident.severity}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          incident.severity === 'CRITICAL' 
+                            ? 'bg-red-100 text-red-700' 
+                            : incident.severity === 'HIGH'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {incident.severity}
+                        </span>
+                        {incident.isNew && (
+                          <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
+                            NEW FROM OFFICER
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">{incident.title}</p>
                     <p className="text-xs text-gray-500">{incident.location}</p>
