@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ShieldIcon from '@/components/ShieldIcon';
 import { User, Lock, ArrowLeft, Users, AlertTriangle } from 'lucide-react';
+import { authenticateUser } from '@/data/mockData';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [role, setRole] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -22,29 +24,34 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     
-    // Simple demo authentication
-    const validCredentials = {
-      admin: { username: 'admin', password: 'admin123', redirect: '/dashboard/admin' },
-      officer: { username: 'officer', password: 'officer123', redirect: '/dashboard/officer' },
-      police: { username: 'rahman', password: 'rahman123', redirect: '/dashboard/police' },
-    };
-
-    const selectedRole = validCredentials[role as keyof typeof validCredentials];
+    // Use the new authentication system
+    const result = authenticateUser(username, password, role as 'admin' | 'officer' | 'police');
     
-    if (selectedRole && username === selectedRole.username && password === selectedRole.password) {
+    if (result.success && result.user) {
       // Successful login - persist minimal user info and redirect
       try {
         const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
-        const displayName = username.charAt(0).toUpperCase() + username.slice(1);
-        localStorage.setItem('user', JSON.stringify({ name: displayName, role: displayRole, avatar: '' }));
+        localStorage.setItem('user', JSON.stringify({ 
+          name: result.user.name, 
+          role: displayRole, 
+          avatar: '',
+          userId: result.user.id
+        }));
       } catch (e) {
         // ignore storage errors
       }
 
-      router.push(selectedRole.redirect);
+      const redirectMap = {
+        admin: '/dashboard/admin',
+        officer: '/dashboard/officer',
+        police: '/dashboard/police'
+      };
+
+      router.push(redirectMap[role as keyof typeof redirectMap] || '/');
     } else {
-      alert('Invalid credentials. Please check your username, password, and selected role.');
+      setError(result.error || 'Invalid credentials. Please try again.');
     }
   };
 
@@ -114,6 +121,13 @@ export default function LoginPage() {
               >
                 Login to Law Enforcement Portal
               </button>
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600 text-center">{error}</p>
+                </div>
+              )}
             </form>
 
             {/* Not Registered Section */}
@@ -235,6 +249,13 @@ export default function LoginPage() {
             >
               Login
             </button>
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600 text-center">{error}</p>
+              </div>
+            )}
           </form>
 
           {/* RBAC Notice */}
