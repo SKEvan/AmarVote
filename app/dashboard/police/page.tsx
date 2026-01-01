@@ -33,6 +33,39 @@ export default function PoliceDashboard() {
   const [notifications, setNotifications] = useState(mockNotifications);
   const [showNotifications, setShowNotifications] = useState(false);
   const [newNotification, setNewNotification] = useState<typeof mockNotifications[0] | null>(null);
+  const [officerIncidents, setOfficerIncidents] = useState<any[]>([]);
+
+  // Load officer-reported incidents from localStorage
+  useEffect(() => {
+    const loadIncidents = () => {
+      const stored = localStorage.getItem('reportedIncidents');
+      if (stored) {
+        const incidents = JSON.parse(stored);
+        setOfficerIncidents(incidents);
+        
+        // Create notifications for new incidents
+        const existingIds = notifications.map(n => n.incidentId);
+        const newIncidents = incidents.filter((inc: any) => !existingIds.includes(inc.id));
+        
+        if (newIncidents.length > 0) {
+          const newNotifs = newIncidents.map((inc: any) => ({
+            id: `NOT-${inc.id}`,
+            incidentId: inc.id,
+            title: `🚨 NEW: ${inc.type.charAt(0).toUpperCase() + inc.type.slice(1)} Incident`,
+            message: inc.description.substring(0, 80) + (inc.description.length > 80 ? '...' : ''),
+            time: 'Just now',
+            priority: inc.severity.toUpperCase(),
+            read: false,
+            isFromOfficer: true,
+          }));
+          setNotifications(prev => [...newNotifs, ...prev]);
+        }
+      }
+    };
+    loadIncidents();
+    const interval = setInterval(loadIncidents, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Simulate real-time notification
   useEffect(() => {
@@ -305,13 +338,91 @@ export default function PoliceDashboard() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-800">All Active Alerts</h2>
               <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-semibold">
-                2 pending incidents
+                {2 + officerIncidents.length} pending incidents
               </div>
             </div>
 
             {/* Alert Cards */}
             <div className="space-y-4">
-              {/* HIGH Priority Alert */}
+              {/* Officer Reported Incidents (Dynamic) */}
+              {officerIncidents.map((incident: any) => {
+                const severityColors: Record<string, { bg: string; border: string; badge: string }> = {
+                  low: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-600' },
+                  medium: { bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-600' },
+                  high: { bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-600' },
+                  critical: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-600' },
+                };
+                const colors = severityColors[incident.severity] || severityColors.medium;
+                const incidentTime = new Date(incident.timestamp);
+                const timeStr = incidentTime.toLocaleTimeString('en-US', { hour12: false });
+                const minutesAgo = Math.floor((Date.now() - incidentTime.getTime()) / 60000);
+                
+                return (
+                  <div key={incident.id} className={`${colors.bg} border-2 ${colors.border} rounded-xl p-5`}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <span className={`${colors.badge} text-white font-bold text-xs px-3 py-1 rounded-md`}>
+                        {incident.severity.toUpperCase()}
+                      </span>
+                      <span className="text-gray-600 font-semibold">{incident.id}</span>
+                      <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
+                        🆕 NEW FROM OFFICER
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Incident
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-4">{incident.description}</p>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="flex items-start gap-2">
+                        <MapPinIcon className="w-5 h-5 text-gray-500 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-900">{incident.location}</p>
+                          <p className="text-sm text-gray-500">Polling Center</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-900">{timeStr}</p>
+                          <p className="text-sm text-gray-500">{minutesAgo} min ago</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-900">{incident.type.charAt(0).toUpperCase() + incident.type.slice(1)}</p>
+                          <p className="text-sm text-gray-500">Incident Type</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleNavigate(incident.location)}
+                        className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <Navigation className="w-4 h-4" />
+                        Navigate
+                      </button>
+                      <button
+                        onClick={() => handleAcknowledge(incident.id)}
+                        className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Acknowledge
+                      </button>
+                      <button
+                        onClick={() => handleViewDetails(incident.id)}
+                        className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* HIGH Priority Alert (Mock) */}
               <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
                 <div className="flex items-start gap-3 mb-4">
                   <span className="bg-red-600 text-white font-bold text-xs px-3 py-1 rounded-md">
