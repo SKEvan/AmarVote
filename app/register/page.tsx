@@ -132,23 +132,53 @@ export default function RegisterPage() {
   };
 
   const validatePhone = (phone: string) => {
-    // Remove any non-digit characters for validation
-    const cleanPhone = phone.replace(/\D/g, '');
-    
-    if (!cleanPhone) {
+    if (!phone) {
       return 'Phone number is required';
     }
     
-    if (cleanPhone.length !== 11) {
-      return 'Phone number must be exactly 11 digits';
-    }
+    const trimmedPhone = phone.trim();
     
-    // Bangladesh mobile operator prefixes
-    const validPrefixes = ['013', '014', '015', '016', '017', '018', '019'];
-    const prefix = cleanPhone.substring(0, 3);
+    // Bangladesh mobile operator prefixes (for local format with leading 0)
+    const validLocalPrefixes = ['013', '014', '015', '016', '017', '018', '019'];
+    // For international format after +880 (2 digits without the leading 0)
+    const validIntlPrefixes = ['13', '14', '15', '16', '17', '18', '19'];
     
-    if (!validPrefixes.includes(prefix)) {
-      return 'Please enter a valid Bangladesh mobile number (013, 014, 015, 016, 017, 018, or 019)';
+    // Check if phone starts with +880 (Bangladesh country code)
+    if (trimmedPhone.startsWith('+880')) {
+      // For +880 format: +880 + 10 digits = 14 characters total
+      // Example: +8801712345678 or +880 1712345678
+      const allDigits = trimmedPhone.replace(/\D/g, ''); // Get all digits
+      
+      // Should have 880 + 10 more digits = 13 total digits
+      if (allDigits.length !== 13) {
+        return 'Phone number with +880 must be 14 characters total (e.g., +8801712345678)';
+      }
+      
+      // Check that it starts with 880
+      if (!allDigits.startsWith('880')) {
+        return 'Invalid format. Must start with +880';
+      }
+      
+      // Get the 10 digits after 880
+      const localNumber = allDigits.substring(3); // Remove 880, get remaining 10 digits
+      
+      // Check if the first 2 digits of the local number are valid operator codes
+      const operatorCode = localNumber.substring(0, 2);
+      if (!validIntlPrefixes.includes(operatorCode)) {
+        return 'Invalid operator code. Must be: 13, 14, 15, 16, 17, 18, or 19 after +880';
+      }
+    } else {
+      // Local format: must be 11 digits starting with 01X
+      const cleanPhone = trimmedPhone.replace(/\D/g, '');
+      
+      if (cleanPhone.length !== 11) {
+        return 'Phone number must be exactly 11 digits';
+      }
+      
+      const prefix = cleanPhone.substring(0, 3);
+      if (!validLocalPrefixes.includes(prefix)) {
+        return 'Phone number must start with valid operator code (013, 014, 015, 016, 017, 018, 019)';
+      }
     }
     
     return '';
@@ -372,8 +402,8 @@ export default function RegisterPage() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="01XXXXXXXXX"
-                    maxLength={11}
+                    placeholder="+8801XXXXXXXXX or 01XXXXXXXXX"
+                    maxLength={14}
                     className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent ${
                       errors.phone 
                         ? 'border-red-500 focus:ring-red-500' 
@@ -388,6 +418,7 @@ export default function RegisterPage() {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-gray-500">
+                    Format: +8801XXXXXXXXX (14 chars) or 01XXXXXXXXX (11 digits)<br/>
                     Valid operators: 013, 014, 015, 016, 017, 018, 019
                   </p>
                 </div>
