@@ -149,7 +149,11 @@ export default function PoliceDashboard() {
       let incidents: any[] = [];
       
       if (stored && stored.length > 0) {
-        incidents = JSON.parse(stored);
+        incidents = JSON.parse(stored).map((inc: any) => ({
+          ...inc,
+          gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
+          coordinates: inc.gpsLocation || inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+        }));
       } else {
         // Use mock data if localStorage is empty
         incidents = mockIncidentsData;

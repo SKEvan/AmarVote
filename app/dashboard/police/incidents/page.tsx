@@ -101,7 +101,10 @@ export default function PoliceIncidentsPage() {
   useEffect(() => {
     const loadIncidents = () => {
       const stored = localStorage.getItem('reportedIncidents');
-      const officerIncidents = stored ? JSON.parse(stored) : [];
+      const officerIncidents = stored ? JSON.parse(stored).map((inc: any) => ({
+        ...inc,
+        gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
+      })) : [];
       
       // Combine officer-reported incidents with mock incidents
       const combined = [...officerIncidents, ...mockIncidents];
@@ -357,6 +360,11 @@ export default function PoliceIncidentsPage() {
                     <MapPin className="w-4 h-4" />
                     {selectedIncident.location}
                   </p>
+                  {selectedIncident.gpsLocation && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      GPS: {selectedIncident.gpsLocation.lat.toFixed(4)}, {selectedIncident.gpsLocation.lng.toFixed(4)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-600">Description</label>
@@ -372,12 +380,28 @@ export default function PoliceIncidentsPage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => { setShowDetailsModal(false); router.push(`/dashboard/police/incidents/${selectedIncident.id}`); }}
-                className="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors"
-              >
-                View Full Details & Acknowledge
-              </button>
+              <div className="mt-6 flex gap-3">
+                {selectedIncident.gpsLocation && (
+                  <button
+                    onClick={() => {
+                      const lat = selectedIncident.gpsLocation.lat;
+                      const lng = selectedIncident.gpsLocation.lng;
+                      // Open in external map (Google Maps)
+                      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Navigate to Location
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowDetailsModal(false); router.push(`/dashboard/police/incidents/${selectedIncident.id}`); }}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors"
+                >
+                  View Full Details
+                </button>
+              </div>
             </div>
           </div>
         </>

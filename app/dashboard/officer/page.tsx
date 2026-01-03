@@ -25,6 +25,7 @@ interface Incident {
   timestamp: string;
   status: 'pending' | 'submitted';
   attachments: AttachedFile[];
+  gpsLocation?: { lat: number; lng: number };
 }
 
 export default function OfficerDashboard() {
@@ -259,6 +260,7 @@ export default function OfficerDashboard() {
         timestamp: new Date().toISOString(),
         status: 'submitted',
         attachments: [...attachedFiles],
+        gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
       };
 
       const updatedIncidents = [newIncident, ...submittedIncidents];
@@ -266,7 +268,11 @@ export default function OfficerDashboard() {
       
       // Save to localStorage so admin and police dashboards can see it
       const existingIncidents = JSON.parse(localStorage.getItem('reportedIncidents') || '[]');
-      localStorage.setItem('reportedIncidents', JSON.stringify([newIncident, ...existingIncidents]));
+      const incidentToSave = {
+        ...newIncident,
+        gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
+      };
+      localStorage.setItem('reportedIncidents', JSON.stringify([incidentToSave, ...existingIncidents]));
       
       setIsSubmitting(false);
       setShowIncidentModal(false);
@@ -640,9 +646,16 @@ export default function OfficerDashboard() {
                 </div>
                 
                 <div className="text-sm text-gray-600">
-                  <p className="font-medium text-gray-800">Auto-detected location</p>
-                  <p className="text-gray-500">
-                    Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(4)}, ${gpsLocation.lng.toFixed(4)}` : '23.8103, 90.4125'}
+                  <p className="font-medium text-gray-800">{gpsLocation ? 'GPS Location Captured ✓' : 'Auto-detected location'}</p>
+                  <p className={`${gpsLocation ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
+                    Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(6)}, ${gpsLocation.lng.toFixed(6)}` : '23.8103, 90.4125 (default)'}
+                  </p>
+                  {gpsLocation && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Your exact GPS location will be shared with law enforcement
+                    </p>
+                  )}
+                </div>
                   </p>
                 </div>
               </div>
@@ -1124,9 +1137,16 @@ export default function OfficerDashboard() {
               </div>
               
               <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-800">Auto-detected location</p>
-                <p className="text-gray-500">
-                  Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(4)}, ${gpsLocation.lng.toFixed(4)}` : '23.8103, 90.4125'}
+                <p className="font-medium text-gray-800">{gpsLocation ? 'GPS Location Captured ✓' : 'Auto-detected location'}</p>
+                <p className={`${gpsLocation ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
+                  Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(6)}, ${gpsLocation.lng.toFixed(6)}` : '23.8103, 90.4125 (default)'}
+                </p>
+                {gpsLocation && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Your exact GPS location will be shared with law enforcement
+                  </p>
+                )}
+              </div>
                 </p>
               </div>
             </div>

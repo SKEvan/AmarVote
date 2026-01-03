@@ -66,19 +66,26 @@ export default function MapPage() {
       if (stored) {
         const parsedIncidents = JSON.parse(stored);
         // Map incidents to include coordinates if available
-        const mappedIncidents = parsedIncidents.map((inc: any) => ({
-          id: inc.id,
-          title: inc.description || inc.type,
-          location: inc.location,
-          lat: inc.gpsLocation?.lat || 23.8103, // Default to Dhaka if no GPS
-          lng: inc.gpsLocation?.lng || 90.4125,
-          priority: inc.severity.toUpperCase(),
-          time: new Date(inc.timestamp).toLocaleTimeString(),
-          distance: '0 km',
-          type: inc.type,
-          status: inc.status || 'pending',
-          severity: inc.severity,
-        }));
+        const mappedIncidents = parsedIncidents.map((inc: any) => {
+          // Ensure GPS location is properly extracted
+          const lat = inc.gpsLocation?.lat || 23.8103;
+          const lng = inc.gpsLocation?.lng || 90.4125;
+          
+          return {
+            id: inc.id,
+            title: inc.description || inc.type,
+            location: inc.location,
+            lat: lat,
+            lng: lng,
+            priority: inc.severity.toUpperCase(),
+            time: new Date(inc.timestamp).toLocaleTimeString(),
+            distance: '0 km',
+            type: inc.type,
+            status: inc.status || 'pending',
+            severity: inc.severity,
+            gpsLocation: { lat, lng },
+          };
+        });
         setIncidents(mappedIncidents);
       }
     };
@@ -200,7 +207,10 @@ export default function MapPage() {
 
       const marker = window.L.marker([incident.lat, incident.lng], { icon: customIcon })
         .addTo(mapInstanceRef.current)
-        .on('click', () => setSelectedIncident(incident));
+        .on('click', () => {
+          setSelectedIncident(incident);
+          mapInstanceRef.current.setView([incident.lat, incident.lng], 15);
+        });
 
       // Add popup
       marker.bindPopup(`
@@ -252,6 +262,22 @@ export default function MapPage() {
 
   const getPriorityBorderColor = (priority: string) => {
     return priority === 'HIGH' ? 'border-red-500' : 'border-yellow-500';
+  };
+
+  const handleNavigateToIncident = (incident: any) => {
+    if (incident.gpsLocation || (incident.lat && incident.lng)) {
+      const lat = incident.gpsLocation?.lat || incident.lat;
+      const lng = incident.gpsLocation?.lng || incident.lng;
+      // Open Google Maps for navigation
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    }
+  };
+
+  const centerMapOnIncident = (incident: any) => {
+    if (mapInstanceRef.current && incident.lat && incident.lng) {
+      mapInstanceRef.current.setView([incident.lat, incident.lng], 15);
+      setSelectedIncident(incident);
+    }
   };
 
   return (
@@ -345,10 +371,9 @@ export default function MapPage() {
             {incidents.filter(i => i.status !== 'acknowledged').map((incident) => (
               <div
                 key={incident.id}
-                className={`p-4 cursor-pointer transition-colors ${
+                className={`p-4 transition-colors ${
                   selectedIncident?.id === incident.id ? 'bg-blue-50' : 'hover:bg-gray-50'
                 } ${getPriorityBorderColor(incident.priority)} border-l-4`}
-                onClick={() => setSelectedIncident(incident)}
               >
                 <div className="flex items-start gap-3">
                   <div className={`w-8 h-8 ${getPriorityColor(incident.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
@@ -366,13 +391,32 @@ export default function MapPage() {
                       <MapPin className="w-3 h-3" />
                       <span className="truncate">{incident.location}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                    {incident.gpsLocation && (
+                      <div className="text-xs text-gray-400 mb-2">
+                        GPS: {incident.gpsLocation.lat.toFixed(4)}, {incident.gpsLocation.lng.toFixed(4)}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
                       <div className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         <span>{incident.time}</span>
                       </div>
                       <span>•</span>
                       <span>{incident.distance} away</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => centerMapOnIncident(incident)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
+                      >
+                        View on Map
+                      </button>
+                      <button
+                        onClick={() => handleNavigateToIncident(incident)}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
+                      >
+                        Navigate
+                      </button>
                     </div>
                   </div>
                 </div>
