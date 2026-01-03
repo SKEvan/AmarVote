@@ -38,6 +38,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'Admin' | 'Officer' | 'Police';
   status: 'Active' | 'Inactive' | 'Pending';
   location: string;
@@ -45,6 +46,8 @@ interface User {
   lastActive: string;
   username?: string;
   password?: string;
+  serviceId?: string;
+  rank?: string;
 }
 
 export default function UserManagementPage() {
@@ -55,6 +58,8 @@ export default function UserManagementPage() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUserDetailModal, setShowUserDetailModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
@@ -84,13 +89,16 @@ export default function UserManagementPage() {
       id: u.id,
       name: u.name,
       email: u.email,
+      phone: u.phone,
       role: u.role,
       status: u.status,
       location: u.location,
       joinedDate: u.joinedDate,
       lastActive: u.lastActive,
       username: u.username,
-      password: u.password
+      password: u.password,
+      serviceId: u.serviceId,
+      rank: u.rank
     })));
   }, []);
 
@@ -197,6 +205,12 @@ export default function UserManagementPage() {
     }
   };
 
+  // View user details
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user);
+    setShowUserDetailModal(true);
+  };
+
   // Delete user
   const handleDeleteUser = (userId: string) => {
     setUserToDelete(userId);
@@ -217,32 +231,32 @@ export default function UserManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-green-600 text-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-green-700 rounded transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold">User Management</h1>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <UserProfileControls role="admin" />
+          </div>
+        </div>
+      </header>
+
       {/* Sidebar */}
       <SlidingSidebar />
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
-        {/* Hero Header - Green */}
-        <header className="bg-green-600 text-white shadow-md">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.back()}
-                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
-                aria-label="Go back"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <h1 className="text-xl font-bold">User Management</h1>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <NotificationBell />
-              <UserProfileControls role="admin" />
-            </div>
-          </div>
-        </header>
+      <div className="transition-all duration-300">
 
         {/* Content */}
         <div className="p-6">
@@ -390,7 +404,11 @@ export default function UserManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredUsers.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage).map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={user.id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => handleViewUser(user)}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
@@ -432,7 +450,7 @@ export default function UserManagementPage() {
                           {user.status === 'Pending' ? (
                             <>
                               <button 
-                                onClick={() => handleApproveUser(user.id)}
+                                onClick={(e) => { e.stopPropagation(); handleApproveUser(user.id); }}
                                 className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 text-sm"
                                 title="Approve"
                               >
@@ -440,7 +458,7 @@ export default function UserManagementPage() {
                                 Approve
                               </button>
                               <button 
-                                onClick={() => handleRejectUser(user.id)}
+                                onClick={(e) => { e.stopPropagation(); handleRejectUser(user.id); }}
                                 className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1 text-sm"
                                 title="Reject"
                               >
@@ -450,11 +468,8 @@ export default function UserManagementPage() {
                             </>
                           ) : (
                             <>
-                              <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                <Edit2 className="w-4 h-4" />
-                              </button>
                               <button 
-                                onClick={() => handleDeleteUser(user.id)}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
                                 title="Delete"
                               >
@@ -616,6 +631,194 @@ export default function UserManagementPage() {
                 <button
                   onClick={handleAddUser}
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                >
+                  Add User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Detail Modal */}
+      {showUserDetailModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {selectedUser.status === 'Pending' ? 'Application Details' : 'User Profile Details'}
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowUserDetailModal(false);
+                  setSelectedUser(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Profile Header */}
+              <div className="flex items-center gap-4 pb-6 border-b border-gray-200">
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center ${
+                  selectedUser.role === 'Police' 
+                    ? 'bg-gradient-to-br from-rose-400 to-rose-600' 
+                    : selectedUser.role === 'Officer'
+                    ? 'bg-gradient-to-br from-blue-400 to-blue-600'
+                    : 'bg-gradient-to-br from-emerald-400 to-emerald-600'
+                }`}>
+                  <span className="text-white font-semibold text-2xl">
+                    {selectedUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">{selectedUser.name}</h3>
+                  <p className="text-gray-500">{selectedUser.email}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(selectedUser.role)}`}>
+                      {selectedUser.role === 'Police' ? 'Law Enforcement' : selectedUser.role === 'Officer' ? 'Presiding Officer' : selectedUser.role}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedUser.status)}`}>
+                      {selectedUser.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Personal Information */}
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-gray-500" />
+                  Personal Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Full Name</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Phone Number</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.username || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Information */}
+              {(selectedUser.role === 'Police' || selectedUser.role === 'Officer') && (
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-gray-500" />
+                    {selectedUser.role === 'Police' ? 'Service Information' : 'Assignment Information'}
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        {selectedUser.role === 'Police' ? 'Service ID' : 'Employee ID'}
+                      </label>
+                      <p className="text-gray-800 font-medium">{selectedUser.serviceId || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        {selectedUser.role === 'Police' ? 'Rank / Designation' : 'Designation'}
+                      </label>
+                      <p className="text-gray-800 font-medium">{selectedUser.rank || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        {selectedUser.role === 'Police' ? 'Posted Station / Location' : 'Polling Station / Location'}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <p className="text-gray-800 font-medium">{selectedUser.location}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Account Information */}
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <FileCheck className="w-5 h-5 text-gray-500" />
+                  Account Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">User ID</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.id}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Account Status</label>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedUser.status)}`}>
+                      {selectedUser.status}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Application Date</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.joinedDate}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Last Active</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.lastActive}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-gray-200">
+                {selectedUser.status === 'Pending' ? (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        handleApproveUser(selectedUser.id);
+                        setShowUserDetailModal(false);
+                        setSelectedUser(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Approve Application
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRejectUser(selectedUser.id);
+                        setShowUserDetailModal(false);
+                        setSelectedUser(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Reject Application
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowUserDetailModal(false);
+                      setSelectedUser(null);
+                    }}
+                    className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/*         className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
                 >
                   Add User
                 </button>

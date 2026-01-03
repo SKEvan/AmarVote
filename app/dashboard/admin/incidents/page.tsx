@@ -184,7 +184,7 @@ export default function IncidentMapPage() {
 
   // Calculate division breakdown (based on filtered incidents)
   const divisionBreakdown = filteredIncidents.reduce((acc, inc) => {
-    const existing = acc.find(d => d.division === inc.division);
+    const existing = acc.find((d: { division: string; count: number }) => d.division === inc.division);
     if (existing) {
       existing.count++;
     } else {
@@ -288,11 +288,11 @@ export default function IncidentMapPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Incidents by Division</h2>
             <div className="flex justify-center">
               <svg width="200" height="200" className="flex-shrink-0">
-                {divisionBreakdown.map((div, idx) => {
+                {divisionBreakdown.map((div: { division: string; count: number }, idx: number) => {
                   let angle = 0;
                   const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
                   const segment = getPieSegment(div.count, angle);
-                  divisionBreakdown.slice(0, idx).forEach(d => {
+                  divisionBreakdown.slice(0, idx).forEach((d: { division: string; count: number }) => {
                     angle += (d.count / totalIncidents) * 360;
                   });
                   const seg = getPieSegment(div.count, angle);
@@ -314,7 +314,7 @@ export default function IncidentMapPage() {
 
             {/* Legend */}
             <div className="mt-6 space-y-2">
-              {divisionBreakdown.map((div, idx) => {
+              {divisionBreakdown.map((div: { division: string; count: number }, idx: number) => {
                 const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
                 return (
                   <div key={div.division} className="flex items-center justify-between text-sm">
