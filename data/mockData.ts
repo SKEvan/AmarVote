@@ -13,6 +13,10 @@ export interface SystemUser {
   lastActive: string;
   serviceId?: string;
   rank?: string;
+  avatar?: string;
+  pollingCenterId?: string;
+  pollingCenterName?: string;
+  thana?: string;
 }
 
 // Default users (hardcoded for demo)
@@ -197,6 +201,23 @@ export const deleteUser = (userId: string): void => {
   saveUsers(filtered);
 };
 
+// Update user profile (phone and avatar)
+export const updateUserProfile = (userId: string, updates: { phone?: string; avatar?: string }): void => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  if (index !== -1) {
+    if (updates.phone) users[index].phone = updates.phone;
+    if (updates.avatar !== undefined) users[index].avatar = updates.avatar;
+    saveUsers(users);
+  }
+};
+
+// Get user by ID
+export const getUserById = (userId: string): SystemUser | undefined => {
+  const users = getUsers();
+  return users.find(u => u.id === userId);
+};
+
 // Authenticate user (for login)
 export const authenticateUser = (username: string, password: string, role: 'admin' | 'officer' | 'police'): { success: boolean; user?: SystemUser; error?: string } => {
   const users = getUsers();
@@ -263,7 +284,9 @@ export const registerPresidingOfficerUser = (userData: {
   phone: string;
   employeeId: string;
   pollingStation: string;
+  pollingCenterId?: string;
   district: string;
+  thana?: string;
   designation: string;
   username: string;
   password: string;
@@ -280,7 +303,10 @@ export const registerPresidingOfficerUser = (userData: {
     joinedDate: new Date().toISOString().split('T')[0],
     lastActive: 'Never',
     serviceId: userData.employeeId,
-    rank: userData.designation
+    rank: userData.designation,
+    pollingCenterId: userData.pollingCenterId,
+    pollingCenterName: userData.pollingStation,
+    thana: userData.thana
   });
 };
 

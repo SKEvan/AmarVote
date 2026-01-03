@@ -33,11 +33,18 @@ function LoginContent() {
       // Successful login - persist minimal user info and redirect
       try {
         const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
+        
+        // Store current userId for profile lookup
+        localStorage.setItem('currentUserId', result.user.id);
+        
+        // Store user display info
         localStorage.setItem('user', JSON.stringify({ 
           name: result.user.name, 
           role: displayRole, 
-          avatar: '',
-          userId: result.user.id
+          avatar: result.user.avatar || '',
+          userId: result.user.id,
+          phone: result.user.phone || '',
+          email: result.user.email
         }));
       } catch (e) {
         // ignore storage errors
