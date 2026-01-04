@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ShieldIcon from '@/components/shared/ShieldIcon';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import ChartTooltip from '@/components/shared/ChartTooltip';
+import { addAuditLog, AuditActions } from '@/lib/auditLog';
 import { 
   LogOut, 
   FileText, 
@@ -36,6 +38,14 @@ export default function AdminDashboard() {
     if (stored !== null) {
       setVoteSubmissionEnabled(stored === 'true');
     }
+
+    // Log dashboard access
+    const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+    addAuditLog(
+      AuditActions.DASHBOARD_ACCESSED,
+      'Admin accessed the main dashboard',
+      userInfo.name || 'Admin'
+    );
   }, []);
 
   // Toggle vote submission and save to localStorage
@@ -43,6 +53,15 @@ export default function AdminDashboard() {
     const newValue = !voteSubmissionEnabled;
     setVoteSubmissionEnabled(newValue);
     localStorage.setItem('voteSubmissionEnabled', String(newValue));
+    
+    // Log setting change
+    const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+    addAuditLog(
+      AuditActions.SETTINGS_CHANGED,
+      `Vote submission ${newValue ? 'ENABLED' : 'DISABLED'} system-wide`,
+      userInfo.name || 'Admin'
+    );
+    
     alert(newValue 
       ? 'Vote submission has been ENABLED. Presiding officers can now submit vote counts.' 
       : 'Vote submission has been DISABLED. Presiding officers cannot submit vote counts.'
@@ -54,6 +73,12 @@ export default function AdminDashboard() {
 
   // State for correction requests
   const [correctionRequest, setCorrectionRequest] = useState(false);
+  const [correctionRequestMeta, setCorrectionRequestMeta] = useState<{
+    officerName?: string;
+    pollingCenterId?: string;
+    pollingCenterName?: string;
+    requestedAt?: string;
+  } | null>(null);
 
   // Load incidents from localStorage
   useEffect(() => {
@@ -74,6 +99,18 @@ export default function AdminDashboard() {
     const checkCorrectionRequest = () => {
       const requested = localStorage.getItem('correctionRequested');
       setCorrectionRequest(requested === 'true');
+
+      const metaRaw = localStorage.getItem('correctionRequestMeta');
+      if (metaRaw) {
+        try {
+          setCorrectionRequestMeta(JSON.parse(metaRaw));
+        } catch (e) {
+          console.error('Error parsing correction request meta', e);
+          setCorrectionRequestMeta(null);
+        }
+      } else {
+        setCorrectionRequestMeta(null);
+      }
     };
     checkCorrectionRequest();
     const interval = setInterval(checkCorrectionRequest, 2000);
@@ -84,8 +121,20 @@ export default function AdminDashboard() {
   const approveCorrectionRequest = () => {
     if (confirm('Are you sure you want to approve this correction request? The officer will be able to resubmit their vote counts.')) {
       localStorage.setItem('voteSubmissionReset', 'true');
+
+      // Also scope reset to the requesting polling center if provided
+      if (correctionRequestMeta?.pollingCenterId) {
+        const centerKey = correctionRequestMeta.pollingCenterId;
+        localStorage.setItem(`voteSubmissionReset_${centerKey}`, 'true');
+        localStorage.setItem(`correctionUsed_${centerKey}`, 'true');
+        localStorage.setItem(`voteResubmissionWindow_${centerKey}`, 'true');
+        localStorage.removeItem(`correctionRequested_${centerKey}`);
+      }
+
       localStorage.removeItem('correctionRequested');
+      localStorage.removeItem('correctionRequestMeta');
       setCorrectionRequest(false);
+      setCorrectionRequestMeta(null);
       alert('Correction approved! The presiding officer can now resubmit vote counts.');
     }
   };
@@ -93,8 +142,13 @@ export default function AdminDashboard() {
   // Reject correction request
   const rejectCorrectionRequest = () => {
     if (confirm('Are you sure you want to reject this correction request?')) {
+      if (correctionRequestMeta?.pollingCenterId) {
+        localStorage.removeItem(`correctionRequested_${correctionRequestMeta.pollingCenterId}`);
+      }
       localStorage.removeItem('correctionRequested');
+      localStorage.removeItem('correctionRequestMeta');
       setCorrectionRequest(false);
+      setCorrectionRequestMeta(null);
       alert('Correction request rejected.');
     }
   };
@@ -105,16 +159,62 @@ export default function AdminDashboard() {
     }
   };
 
-  // Mock data for party votes
-  const partyVotes = [
-    { party: 'PA', votes: 12500, color: '#10b981' },
-    { party: 'PB', votes: 10800, color: '#3b82f6' },
-    { party: 'PC', votes: 8200, color: '#f59e0b' },
-    { party: 'PD', votes: 5100, color: '#a855f7' },
-    { party: 'PE', votes: 3800, color: '#ec4899' },
-    { party: 'PF', votes: 3100, color: '#ef4444' },
-    { party: 'PND', votes: 2800, color: '#6b7280' },
+  const PARTIES = [
+    { id: 'PA', name: 'Party A', color: '#10b981' },
+    { id: 'PB', name: 'Party B', color: '#3b82f6' },
+    { id: 'PC', name: 'Party C', color: '#f59e0b' },
+    { id: 'PD', name: 'Party D', color: '#a855f7' },
+    { id: 'PE', name: 'Party E', color: '#ec4899' },
+    { id: 'PF', name: 'Party F', color: '#ef4444' },
+    { id: 'IND', name: 'Independent', color: '#6b7280' },
   ];
+
+  const [voteSubmissions, setVoteSubmissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadVotes = () => {
+      try {
+        const raw = localStorage.getItem('votesSubmissions');
+        setVoteSubmissions(raw ? JSON.parse(raw) : []);
+      } catch (e) {
+        console.error('Error loading vote submissions', e);
+        setVoteSubmissions([]);
+      }
+    };
+
+    loadVotes();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'votesSubmissions') loadVotes();
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', loadVotes);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', loadVotes);
+    };
+  }, []);
+
+  const partyVotes = useMemo(() => {
+    const totals = PARTIES.map((p) => ({ ...p, votes: 0 }));
+    voteSubmissions.forEach((sub) => {
+      const votes = sub.partyVotes || {};
+      totals.forEach((t) => {
+        t.votes += Number(votes[t.id] || 0);
+      });
+    });
+    return totals;
+  }, [PARTIES, voteSubmissions]);
+
+  const topPollingCenters = useMemo(() => {
+    const centers = voteSubmissions.map((sub) => ({
+      name: sub.pollingCenterName || sub.pollingCenter || 'Polling Center',
+      location: sub.pollingCenter || 'Unknown',
+      votes: Number(sub.totalVotes) || 0,
+      turnout: sub.totalVotes ? `${sub.totalVotes} votes` : 'No votes yet',
+    }));
+    return centers.sort((a, b) => b.votes - a.votes).slice(0, 5);
+  }, [voteSubmissions]);
 
   // Only show officer-reported incidents (real data only)
   const recentIncidents = officerIncidents.map(inc => ({
@@ -130,27 +230,19 @@ export default function AdminDashboard() {
   // Count only active (non-acknowledged) incidents
   const activeIncidentsCount = officerIncidents.filter(inc => inc.status !== 'acknowledged').length;
 
-  const topPollingCenters = [
-    { name: 'Radio Colony Model School', location: 'Sakot', votes: 3450, turnout: '58% turnout' },
-    { name: 'Pathaiya', location: 'Sakot', votes: 3100, turnout: '58% turnout' },
-    { name: 'Shusujan Zirnat Ali High School', location: 'Sakot', votes: 2890, turnout: '50% turnout' },
-    { name: 'Mirza Golan Hafiz College', location: 'Sakot', votes: 2340, turnout: '47% turnout' },
-    { name: 'Savar Girls High School', location: 'Sakot', votes: 2200, turnout: '49% turnout' },
-  ];
-
   // Calculate max vote for chart scaling
-  const maxVotes = Math.max(...partyVotes.map(p => p.votes));
+  const maxVotes = Math.max(1, ...partyVotes.map(p => p.votes));
   const chartHeight = 250;
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <SlidingSidebar />
+      <SlidingSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} hideTrigger />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-green-600 text-white px-6 py-4">
+        <header className="bg-green-600 text-white px-6 py-4 sticky top-0 z-40">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -159,7 +251,10 @@ export default function AdminDashboard() {
               >
                 {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
-              <h1 className="text-xl font-bold">Admin Dashboard - AmarVote</h1>
+              <div className="flex items-center gap-3">
+                <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={36} height={36} className="rounded-lg shadow-sm" />
+                <h1 className="text-xl font-bold">Admin Dashboard - AmarVote</h1>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -218,6 +313,16 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-sm font-semibold text-orange-800 mb-1">Correction Request</h3>
                 <p className="text-xs text-orange-600 mb-3">Officer requests to resubmit votes</p>
+
+                {correctionRequestMeta && (
+                  <div className="mb-4 bg-white/80 border border-orange-200 rounded-lg p-3 text-xs text-gray-800">
+                    <p className="font-semibold text-orange-900">{correctionRequestMeta.officerName || 'Presiding Officer'}</p>
+                    <p className="text-gray-700">Polling Center: {correctionRequestMeta.pollingCenterName || correctionRequestMeta.pollingCenterId || 'Unknown center'}</p>
+                    {correctionRequestMeta.requestedAt && (
+                      <p className="text-gray-500">Requested at: {new Date(correctionRequestMeta.requestedAt).toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={approveCorrectionRequest}
@@ -293,9 +398,9 @@ export default function AdminDashboard() {
             
             <div className="flex items-end justify-around h-64 gap-4 pb-8 pt-6">
               {partyVotes.map((party) => {
-                const barHeight = (party.votes / maxVotes) * chartHeight;
+                const barHeight = maxVotes === 0 ? 0 : (party.votes / maxVotes) * chartHeight;
                 return (
-                  <div key={party.party} className="flex flex-col items-center flex-1">
+                  <div key={party.id} className="flex flex-col items-center flex-1">
                     <div className="w-full bg-gray-200 rounded-t-lg relative" style={{ height: `${chartHeight}px` }}>
                       <div
                         className="w-full rounded-t-lg transition-all duration-300 hover:opacity-80 cursor-pointer"
@@ -305,12 +410,12 @@ export default function AdminDashboard() {
                           position: 'absolute',
                           bottom: 0,
                         }}
-                        onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, content: `${party.party}: ${party.votes.toLocaleString()} votes` })}
+                        onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, content: `${party.id}: ${party.votes.toLocaleString()} votes` })}
                         onMouseLeave={() => setTooltip(null)}
                         onClick={() => router.push(`/dashboard/admin/incidents`)}
                       ></div>
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 mt-3">{party.party}</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-3">{party.id}</p>
                   </div>
                 );
               })}
