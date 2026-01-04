@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, MapPin, AlertTriangle, Clock } from 'lucide-react';
+import { ChevronLeft, MapPin, AlertTriangle, Clock, Menu, X } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import ChartTooltip from '@/components/shared/ChartTooltip';
 
@@ -17,6 +17,7 @@ declare global {
 
 export default function IncidentMapPage() {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   // search removed per request; only filtering remains
   const [userHover, setUserHover] = useState<{ x: number; y: number; content: string } | null>(null);
@@ -193,27 +194,41 @@ export default function IncidentMapPage() {
     return acc;
   }, [] as Array<{ division: string; count: number }>);
 
-  // Calculate severity breakdown
+  // Reset pie tooltip when filters change (left chart), but severity chart stays unfiltered
+  useEffect(() => {
+    setPieTooltip(null);
+  }, [filterSeverity]);
+
+  // Calculate severity breakdown from all incidents (not affected by filter)
   const severityBreakdown = [
-    { severity: 'CRITICAL', count: filteredIncidents.filter(i => i.severity === 'CRITICAL').length, color: '#ef4444' },
-    { severity: 'HIGH', count: filteredIncidents.filter(i => i.severity === 'HIGH').length, color: '#f97316' },
-    { severity: 'MEDIUM', count: filteredIncidents.filter(i => i.severity === 'MEDIUM').length, color: '#eab308' },
-    { severity: 'LOW', count: filteredIncidents.filter(i => i.severity === 'LOW').length, color: '#10b981' },
+    { severity: 'CRITICAL', count: incidents.filter(i => i.severity === 'CRITICAL').length, color: '#ef4444' },
+    { severity: 'HIGH', count: incidents.filter(i => i.severity === 'HIGH').length, color: '#f97316' },
+    { severity: 'MEDIUM', count: incidents.filter(i => i.severity === 'MEDIUM').length, color: '#eab308' },
+    { severity: 'LOW', count: incidents.filter(i => i.severity === 'LOW').length, color: '#10b981' },
   ];
 
   // Pie chart calculations
   const totalIncidents = filteredIncidents.length;
   const [pieTooltip, setPieTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
   const getPieSegment = (count: number, startAngle: number) => {
-    const sliceAngle = (count / totalIncidents) * 360;
+    if (totalIncidents === 0) return { startAngle, sliceAngle: 0, endAngle: startAngle };
+    const rawSlice = (count / totalIncidents) * 360;
+    // Avoid degenerate arc when one slice owns 100%
+    const sliceAngle = rawSlice >= 360 ? 359.999 : rawSlice;
     return { startAngle, sliceAngle, endAngle: startAngle + sliceAngle };
   };
 
-  const getSeverityPieSegment = (count: number, startAngle: number) => {
-    const totalSeverity = severityBreakdown.reduce((sum, s) => sum + s.count, 0);
-    const sliceAngle = (count / totalSeverity) * 360;
-    return { startAngle, sliceAngle, endAngle: startAngle + sliceAngle };
-  };
+  const totalSeverity = severityBreakdown.reduce((sum, s) => sum + s.count, 0);
+  const severitySegments = severityBreakdown
+    .filter((s) => s.count > 0)
+    .reduce((acc, s) => {
+      const startAngle = acc.length === 0 ? 0 : acc[acc.length - 1].endAngle;
+      const rawSlice = totalSeverity === 0 ? 0 : (s.count / totalSeverity) * 360;
+      // Avoid a degenerate arc when one slice owns 100% (360deg)
+      const sliceAngle = rawSlice >= 360 ? 359.999 : rawSlice;
+      acc.push({ ...s, startAngle, endAngle: startAngle + sliceAngle });
+      return acc;
+    }, [] as Array<{ severity: string; color: string; count: number; startAngle: number; endAngle: number }>);
 
   const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
     const angleInRadians = (angleInDegrees - 90) * (Math.PI / 180.0);
@@ -238,9 +253,15 @@ export default function IncidentMapPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-green-600 text-white px-6 py-4">
+      <header className="bg-green-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-green-700 rounded transition-colors"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
             <button
               onClick={() => router.back()}
               className="p-2 hover:bg-green-700 rounded transition-colors"
@@ -257,7 +278,7 @@ export default function IncidentMapPage() {
         </div>
       </header>
 
-      <SlidingSidebar />
+      <SlidingSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} hideTrigger />
       {/* Main Content */}
       <main className="flex-1 overflow-auto p-6">
         {/* Stats Row */}
@@ -287,27 +308,30 @@ export default function IncidentMapPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-md hover:shadow-lg transition-shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Incidents by Division</h2>
             <div className="flex justify-center">
-              <svg width="200" height="200" className="flex-shrink-0">
-                {divisionBreakdown.map((div: { division: string; count: number }, idx: number) => {
-                  let angle = 0;
-                  const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
-                  const segment = getPieSegment(div.count, angle);
-                  divisionBreakdown.slice(0, idx).forEach((d: { division: string; count: number }) => {
-                    angle += (d.count / totalIncidents) * 360;
-                  });
-                  const seg = getPieSegment(div.count, angle);
-                  
-                  return (
-                    <path
-                      key={div.division}
-                      d={getArcPath(100, 100, 80, seg.startAngle, seg.endAngle)}
-                      fill={colors[idx % colors.length]}
-                      onMouseMove={(e:any) => setPieTooltip({ x: e.clientX, y: e.clientY, content: `${div.division}: ${div.count} incidents` })}
-                      onMouseLeave={() => setPieTooltip(null)}
-                    />
-                  );
-                })}
-              </svg>
+              {totalIncidents === 0 ? (
+                <p className="text-sm text-gray-500">No incidents match this filter.</p>
+              ) : (
+                <svg width="200" height="200" className="flex-shrink-0">
+                  {(() => {
+                    let angle = 0;
+                    const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
+                    return divisionBreakdown.map((div: { division: string; count: number }, idx: number) => {
+                      if (div.count === 0) return null;
+                      const seg = getPieSegment(div.count, angle);
+                      angle += seg.sliceAngle;
+                      return (
+                        <path
+                          key={div.division}
+                          d={getArcPath(100, 100, 80, seg.startAngle, seg.endAngle)}
+                          fill={colors[idx % colors.length]}
+                          onMouseMove={(e:any) => setPieTooltip({ x: e.clientX, y: e.clientY, content: `${div.division}: ${div.count} incidents` })}
+                          onMouseLeave={() => setPieTooltip(null)}
+                        />
+                      );
+                    });
+                  })()}
+                </svg>
+              )}
             </div>
 
             {pieTooltip && <ChartTooltip x={pieTooltip.x} y={pieTooltip.y}>{pieTooltip.content}</ChartTooltip>}
@@ -336,25 +360,21 @@ export default function IncidentMapPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-md hover:shadow-lg transition-shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Incidents by Severity</h2>
             <div className="flex justify-center">
-              <svg width="200" height="200" className="flex-shrink-0">
-                {severityBreakdown.map((sev, idx) => {
-                  let angle = 0;
-                  severityBreakdown.slice(0, idx).forEach(s => {
-                    angle += (s.count / severityBreakdown.reduce((sum, s) => sum + s.count, 0)) * 360;
-                  });
-                  const seg = getSeverityPieSegment(sev.count, angle);
-                  
-                  return (
+              {totalSeverity === 0 ? (
+                <p className="text-sm text-gray-500">No incidents match this filter.</p>
+              ) : (
+                <svg width="200" height="200" className="flex-shrink-0">
+                  {severitySegments.map((seg) => (
                     <path
-                      key={sev.severity}
+                      key={seg.severity}
                       d={getArcPath(100, 100, 80, seg.startAngle, seg.endAngle)}
-                      fill={sev.color}
-                      onMouseMove={(e:any) => setPieTooltip({ x: e.clientX, y: e.clientY, content: `${sev.severity}: ${sev.count}` })}
+                      fill={seg.color}
+                      onMouseMove={(e:any) => setPieTooltip({ x: e.clientX, y: e.clientY, content: `${seg.severity}: ${seg.count}` })}
                       onMouseLeave={() => setPieTooltip(null)}
                     />
-                  );
-                })}
-              </svg>
+                  ))}
+                </svg>
+              )}
             </div>
 
             {/* Legend */}
