@@ -216,6 +216,11 @@ export default function AdminDashboard() {
     return centers.sort((a, b) => b.votes - a.votes).slice(0, 5);
   }, [voteSubmissions]);
 
+  // Calculate total votes cast across all centers
+  const totalVotesCast = useMemo(() => {
+    return voteSubmissions.reduce((sum, sub) => sum + (Number(sub.totalVotes) || 0), 0);
+  }, [voteSubmissions]);
+
   // Only show officer-reported incidents (real data only)
   const recentIncidents = officerIncidents.map(inc => ({
     id: inc.id,
@@ -384,9 +389,9 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
                   <Users className="w-6 h-6 text-purple-600" />
                 </div>
-                <span className="text-3xl font-bold text-purple-600">17,970</span>
+                <span className="text-3xl font-bold text-purple-600">{totalVotesCast.toLocaleString()}</span>
               </div>
-              <h3 className="text-sm font-medium text-gray-700">Total Voters Cast</h3>
+              <h3 className="text-sm font-medium text-gray-700">Total Votes Cast</h3>
               <p className="text-xs text-gray-500">Across all centers</p>
             </div>
           </div>

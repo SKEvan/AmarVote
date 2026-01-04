@@ -36,6 +36,7 @@ export default function OfficerDashboard() {
   const [pollingCenterId, setPollingCenterId] = useState('PC-DHK-001');
   const [pollingCenterName, setPollingCenterName] = useState('');
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
+  const [isInResubmissionWindow, setIsInResubmissionWindow] = useState(false);
   const [userName, setUserName] = useState('Presiding Officer');
   const [userRole, setUserRole] = useState('Presiding Officer');
   const [totalVoters, setTotalVoters] = useState<number>(0);
@@ -48,6 +49,9 @@ export default function OfficerDashboard() {
     PF: 0,
     IND: 0,
   });
+  
+  // Track if we've already processed a reset to prevent multiple resets
+  const hasProcessedResetRef = useRef(false);
 
   // Load user data from localStorage and database
   useEffect(() => {
@@ -147,8 +151,13 @@ export default function OfficerDashboard() {
       const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
       const resetFlag = localStorage.getItem(centerResetKey) || localStorage.getItem('voteSubmissionReset');
       const resubmitWindow = localStorage.getItem(resubmitWindowKey);
-      if (resetFlag === 'true' || resubmitWindow === 'true') {
-        // Admin has approved the correction request - reset submission
+      
+      if (resetFlag === 'true' && !hasProcessedResetRef.current) {
+        // Admin has approved the correction request - reset submission and enable resubmission window
+        // This should only run ONCE when the reset flag is first detected
+        hasProcessedResetRef.current = true;
+        setIsInResubmissionWindow(true);
+        
         try {
           // Remove this center's submission from the multi-center list
           const raw = localStorage.getItem('votesSubmissions');
@@ -162,7 +171,6 @@ export default function OfficerDashboard() {
         localStorage.removeItem('votesSubmitted');
         localStorage.removeItem('voteSubmissionReset');
         localStorage.removeItem(centerResetKey);
-        localStorage.removeItem(resubmitWindowKey);
         const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
         localStorage.removeItem(correctionKey);
         localStorage.removeItem('correctionRequested');
@@ -176,15 +184,22 @@ export default function OfficerDashboard() {
 
         setShowVoteSubmittedView(false);
         setSubmittedVoteData(null);
-        // Reset vote counts
+        // Reset vote counts ONLY on initial reset
         setVoteCounts({ PA: 0, PB: 0, PC: 0, PD: 0, PE: 0, PF: 0, IND: 0 });
+      } else if (resubmitWindow === 'true') {
+        // Just maintain the resubmission window state without resetting anything
+        setIsInResubmissionWindow(true);
+      } else {
+        // No active resubmission window
+        setIsInResubmissionWindow(false);
+        hasProcessedResetRef.current = false; // Reset the flag when window closes
       }
     };
     
     checkForReset();
     const interval = setInterval(checkForReset, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pollingCenterId]);
 
   // Correction request state
   const [correctionRequested, setCorrectionRequested] = useState(false);
@@ -467,6 +482,8 @@ export default function OfficerDashboard() {
       // Close any resubmission window after the corrected submission
       const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
       localStorage.removeItem(resubmitWindowKey);
+      setIsInResubmissionWindow(false);
+      hasProcessedResetRef.current = false; // Reset the ref for potential future corrections
 
       // Log vote submission
       addAuditLog(
@@ -892,8 +909,19 @@ export default function OfficerDashboard() {
               <div id="vote-entry-form" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-blue-800 mb-6">Party-wise Vote Entry</h2>
                 
+                {/* Resubmission Window Banner */}
+                {isInResubmissionWindow && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-700">✓ Correction Approved - Resubmission Window Active</p>
+                      <p className="text-xs text-green-600">You can now resubmit your vote counts</p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Locked Warning Banner */}
-                {!voteSubmissionEnabled && (
+                {!voteSubmissionEnabled && !isInResubmissionWindow && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
                     <div>
@@ -914,9 +942,9 @@ export default function OfficerDashboard() {
                       type="text"
                       value={pollingCenterId}
                       onChange={(e) => setPollingCenterId(e.target.value)}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled && !isInResubmissionWindow ? 'bg-gray-100 text-gray-500' : ''}`}
                       readOnly
-                      disabled={!voteSubmissionEnabled}
+                      disabled={!voteSubmissionEnabled && !isInResubmissionWindow}
                     />
                   </div>
 
@@ -931,9 +959,9 @@ export default function OfficerDashboard() {
                       min="0"
                       value={totalVoters}
                       onChange={(e) => setTotalVoters(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled && !isInResubmissionWindow ? 'bg-gray-100 text-gray-500' : ''}`}
                       placeholder="Enter total registered voters"
-                      disabled={!voteSubmissionEnabled}
+                      disabled={!voteSubmissionEnabled && !isInResubmissionWindow}
                     />
                   </div>
 
@@ -955,9 +983,9 @@ export default function OfficerDashboard() {
                             min="0"
                             value={voteCounts[party.id as keyof typeof voteCounts]}
                             onChange={(e) => handleVoteChange(party.id, e.target.value)}
-                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
+                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center ${!voteSubmissionEnabled && !isInResubmissionWindow ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
                             placeholder="0"
-                            disabled={!voteSubmissionEnabled}
+                            disabled={!voteSubmissionEnabled && !isInResubmissionWindow}
                           />
                         </div>
                       ))}
@@ -973,14 +1001,14 @@ export default function OfficerDashboard() {
               </div>
 
               {/* Submit Button - Outside form card */}
-              {voteSubmissionEnabled ? (
+              {(voteSubmissionEnabled || isInResubmissionWindow) ? (
                 <button
                   type="button"
                   onClick={handleSubmit}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Save className="w-5 h-5" />
-                  Submit Vote Counts (One-Time Only)
+                  {isInResubmissionWindow ? 'Resubmit Corrected Vote Counts' : 'Submit Vote Counts (One-Time Only)'}
                 </button>
               ) : (
                 <button
