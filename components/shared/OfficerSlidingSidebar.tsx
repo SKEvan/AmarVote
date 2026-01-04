@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Menu, X, Home, AlertTriangle, Vote, FileText, User } from 'lucide-react';
+import { Menu, X, Home, AlertTriangle, Vote, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface OfficerSlidingSidebarProps {
@@ -46,14 +46,14 @@ export default function OfficerSlidingSidebar({
       >
         <div className="w-72 bg-white h-full shadow-2xl flex flex-col">
           {/* Header */}
-          <div className="bg-green-600 p-4 flex items-center justify-between">
+          <div className="bg-blue-600 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Home className="w-5 h-5 text-white" />
               <h4 className="font-semibold text-white">Presiding Officer</h4>
             </div>
             <button 
               onClick={() => setOpen(false)} 
-              className="p-1 rounded hover:bg-green-500 transition-colors"
+              className="p-1 rounded hover:bg-blue-500 transition-colors"
             >
               <X className="w-5 h-5 text-white" />
             </button>
@@ -61,23 +61,6 @@ export default function OfficerSlidingSidebar({
 
           {/* Menu Items */}
           <nav className="flex-1 p-4 space-y-3">
-            {/* Dashboard Home */}
-            <button 
-              onClick={() => { 
-                setOpen(false); 
-                router.push('/dashboard/officer'); 
-              }} 
-              className="w-full text-left p-3 rounded-lg hover:bg-green-50 flex items-center gap-3 border border-gray-200 transition-colors"
-            >
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Home className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Dashboard</div>
-                <div className="text-xs text-gray-500">Vote entry overview</div>
-              </div>
-            </button>
-
             {/* Report Incident Button */}
             <button 
               onClick={() => { 
@@ -111,7 +94,7 @@ export default function OfficerSlidingSidebar({
               disabled={!voteSubmissionEnabled || votesAlreadySubmitted}
               className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${
                 votesAlreadySubmitted 
-                  ? 'bg-green-50 border-2 border-green-300 cursor-default'
+                  ? 'bg-blue-50 border-2 border-blue-300 cursor-default'
                   : voteSubmissionEnabled 
                     ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-sm' 
                     : 'bg-gray-100 border border-gray-300 cursor-not-allowed'
@@ -119,14 +102,14 @@ export default function OfficerSlidingSidebar({
             >
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                 votesAlreadySubmitted 
-                  ? 'bg-green-200'
+                  ? 'bg-blue-200'
                   : voteSubmissionEnabled 
                     ? 'bg-white/20' 
                     : 'bg-gray-200'
               }`}>
                 <Vote className={`w-5 h-5 ${
                   votesAlreadySubmitted 
-                    ? 'text-green-600'
+                    ? 'text-blue-600'
                     : voteSubmissionEnabled 
                       ? 'text-white' 
                       : 'text-gray-400'
@@ -135,7 +118,7 @@ export default function OfficerSlidingSidebar({
               <div>
                 <div className={`text-sm font-semibold ${
                   votesAlreadySubmitted 
-                    ? 'text-green-700'
+                    ? 'text-blue-700'
                     : voteSubmissionEnabled 
                       ? 'text-white' 
                       : 'text-gray-500'
@@ -146,7 +129,7 @@ export default function OfficerSlidingSidebar({
                 </div>
                 <div className={`text-xs ${
                   votesAlreadySubmitted 
-                    ? 'text-green-600'
+                    ? 'text-blue-600'
                     : voteSubmissionEnabled 
                       ? 'text-indigo-100' 
                       : 'text-gray-400'
@@ -160,28 +143,12 @@ export default function OfficerSlidingSidebar({
               </div>
             </button>
 
-            {/* Profile Link */}
-            <button 
-              onClick={() => { 
-                setOpen(false); 
-                router.push('/dashboard/officer/profile'); 
-              }} 
-              className="w-full text-left p-3 rounded-lg hover:bg-gray-50 flex items-center gap-3 border border-gray-200 transition-colors"
-            >
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-gray-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">My Profile</div>
-                <div className="text-xs text-gray-500">View & edit profile</div>
-              </div>
-            </button>
           </nav>
 
           {/* Footer Info */}
           <div className="p-4 border-t border-gray-200 bg-gray-50">
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              <div className={`w-2 h-2 rounded-full ${voteSubmissionEnabled ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${voteSubmissionEnabled ? 'bg-blue-500' : 'bg-yellow-500'}`}></div>
               <span>
                 {voteSubmissionEnabled 
                   ? 'Voting period ended - Submit now' 

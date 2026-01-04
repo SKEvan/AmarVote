@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, X, UserPlus } from 'lucide-react';
 import { registerPresidingOfficerUser, getUsers } from '@/data/mockData';
+import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 // Bangladesh Divisions and Districts
 const divisionDistrictMap: Record<string, string[]> = {
@@ -20,7 +22,7 @@ const divisionDistrictMap: Record<string, string[]> = {
 
 // District-wise Police Stations/Thanas
 const districtThanaMap: Record<string, string[]> = {
-  'Dhaka': ['Adabor', 'Badda', 'Banani', 'Bangshal', 'Biman Bandar', 'Cantonment', 'Chak Bazar', 'Darus Salam', 'Demra', 'Dhanmondi', 'Gendaria', 'Gulshan', 'Hazaribagh', 'Jatrabari', 'Kadamtali', 'Kafrul', 'Kalabagan', 'Kamrangirchar', 'Khilgaon', 'Khilkhet', 'Kotwali', 'Lalbagh', 'Mirpur Model', 'Mohammadpur', 'Motijheel', 'Mugda', 'New Market', 'Pallabi', 'Paltan', 'Ramna', 'Rampura', 'Sabujbagh', 'Shah Ali', 'Shahbagh', 'Shahjahanpur', 'Sher-E-Bangla Nagar', 'Shyampur', 'Sutrapur', 'Tejgaon', 'Tejgaon Industrial', 'Turag', 'Uttara East', 'Uttara West', 'Vatara', 'Wari'],
+  'Dhaka': ['Adabor', 'Badda', 'Banani', 'Bangshal', 'Biman Bandar', 'Cantonment', 'Chak Bazar', 'Darus Salam', 'Demra', 'Dhanmondi', 'Gendaria', 'Gulshan', 'Hazaribagh', 'Jatrabari', 'Kadamtali', 'Kafrul', 'Kalabagan', 'Kamrangirchar', 'Khilgaon', 'Khilkhet', 'Kotwali', 'Lalbagh', 'Mirpur Model', 'Mohammadpur', 'Motijheel', 'Mugda', 'New Market', 'Pallabi', 'Paltan', 'Ramna', 'Rampura', 'Sabujbagh', 'Savar', 'Shah Ali', 'Shahbagh', 'Shahjahanpur', 'Sher-E-Bangla Nagar', 'Shyampur', 'Sutrapur', 'Tejgaon', 'Tejgaon Industrial', 'Turag', 'Uttara East', 'Uttara West', 'Vatara', 'Wari'],
   'Faridpur': ['Faridpur Sadar', 'Alfadanga', 'Boalmari', 'Char Bhadrasan', 'Madhukhali', 'Nagarkanda', 'Sadarpur', 'Saltha'],
   'Gazipur': ['Gazipur Sadar', 'Bhawal', 'Joydebpur', 'Kaliakair', 'Kaliganj', 'Kapasia', 'Monnunagar', 'Sreepur', 'Tongi East', 'Tongi West'],
   'Gopalganj': ['Gopalganj Sadar', 'Kashiani', 'Kotalipara', 'Muksudpur', 'Tungipara'],
@@ -90,6 +92,8 @@ const districtThanaMap: Record<string, string[]> = {
 export default function OfficerRegisterPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -201,11 +205,32 @@ export default function OfficerRegisterPage() {
       setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
       return;
     }
+
+    // Check if polling center ID is already registered
+    if (existingUsers.some(u => u.role === 'Officer' && u.pollingCenterId === formData.pollingCenterId)) {
+      setErrors(prev => ({ ...prev, pollingCenterId: 'This polling center already has a registered officer. Only one officer per polling center is allowed.' }));
+      return;
+    }
     
     setIsSubmitting(true);
+
+    // Convert file to base64
+    let nidDocumentBase64 = '';
+    if (selectedFile) {
+      try {
+        const reader = new FileReader();
+        nidDocumentBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+      } catch (err) {
+        console.error('Error reading file:', err);
+      }
+    }
     
     // Register the user with Pending status
-    registerPresidingOfficerUser({
+    const newUser = registerPresidingOfficerUser({
       fullName: formData.fullName,
       email: formData.email,
       phone: formData.phone,
@@ -216,42 +241,59 @@ export default function OfficerRegisterPage() {
       thana: formData.thana,
       designation: 'Presiding Officer',
       username: formData.username,
-      password: formData.password
+      password: formData.password,
+      nidDocument: nidDocumentBase64
     });
+
+    // Log user registration
+    addAuditLog(
+      AuditActions.USER_CREATED,
+      `New Presiding Officer registered: ${formData.fullName} (${formData.username}) for polling center ${formData.pollingCenterName} (${formData.pollingCenterId})`,
+      'System'
+    );
 
     setIsSubmitting(false);
     router.push('/register/officer/success');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-blue-900 to-purple-900">
+    <div
+      className={`min-h-screen bg-gradient-to-br from-blue-200 via-white to-blue-400 text-slate-900 transition-all duration-500 transform ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}
+    >
       {/* Back to Home Link */}
       <div className="max-w-3xl mx-auto pt-6 px-4">
-        <Link href="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900 transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to Home</span>
+          <span className="text-sm font-medium">Back to Home</span>
         </Link>
       </div>
 
       {/* Header */}
       <div className="text-center py-8">
-        <div className="w-16 h-16 bg-blue-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
+          <div className="text-left">
+            <p className="text-xl font-semibold text-slate-900">AmarVote</p>
+            <p className="text-sm text-slate-600">Secure Election Monitoring</p>
+          </div>
+        </div>
+        <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-xl">
           <UserPlus className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">Presiding Officer Registration</h1>
-        <p className="text-blue-200">Apply for polling center access</p>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Presiding Officer Registration</h1>
+        <p className="text-slate-600">Apply for polling center access</p>
       </div>
 
       {/* Form Card */}
       <div className="max-w-3xl mx-auto px-4 pb-12">
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-slate-50 rounded-2xl shadow-xl p-8 space-y-6 border border-blue-200">
           
           {/* Personal Information */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-700 mb-4">Personal Information</h3>
+            <h3 className="text-lg font-semibold text-blue-800 mb-4">Personal Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -260,12 +302,12 @@ export default function OfficerRegisterPage() {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   placeholder="Enter your full name"
-                  className={`w-full px-4 py-3 border ${errors.fullName ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.fullName ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -274,12 +316,12 @@ export default function OfficerRegisterPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="email@example.com"
-                  className={`w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.email ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -288,12 +330,12 @@ export default function OfficerRegisterPage() {
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder="+880 1XXX-XXXXXX"
-                  className={`w-full px-4 py-3 border ${errors.phone ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.phone ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   National ID (NID) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -302,7 +344,7 @@ export default function OfficerRegisterPage() {
                   value={formData.nid}
                   onChange={handleInputChange}
                   placeholder="Enter your NID number"
-                  className={`w-full px-4 py-3 border ${errors.nid ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.nid ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.nid && <p className="text-red-500 text-xs mt-1">{errors.nid}</p>}
               </div>
@@ -311,19 +353,19 @@ export default function OfficerRegisterPage() {
 
           {/* Polling Center Information */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-700 mb-4 flex items-center gap-2">
-              <span className="text-blue-500">📍</span> Polling Center Information
+            <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
+              <span className="text-blue-600">📍</span> Polling Center Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Division <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="division"
                   value={formData.division}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border ${errors.division ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.division ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 >
                   <option value="">Select division</option>
                   {Object.keys(divisionDistrictMap).map(division => (
@@ -333,7 +375,7 @@ export default function OfficerRegisterPage() {
                 {errors.division && <p className="text-red-500 text-xs mt-1">{errors.division}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   District <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -341,7 +383,7 @@ export default function OfficerRegisterPage() {
                   value={formData.district}
                   onChange={handleInputChange}
                   disabled={!formData.division}
-                  className={`w-full px-4 py-3 border ${errors.district ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 disabled:bg-gray-100`}
+                  className={`w-full px-4 py-3 border ${errors.district ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400 disabled:bg-gray-50`}
                 >
                   <option value="">Select district</option>
                   {availableDistricts.map(district => (
@@ -351,17 +393,17 @@ export default function OfficerRegisterPage() {
                 {errors.district && <p className="text-red-500 text-xs mt-1">{errors.district}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Police Station / Thana <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Police Station / Thana / Upazila <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="thana"
                   value={formData.thana}
                   onChange={handleInputChange}
                   disabled={!formData.district}
-                  className={`w-full px-4 py-3 border ${errors.thana ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 disabled:bg-gray-100`}
+                  className={`w-full px-4 py-3 border ${errors.thana ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400 disabled:bg-gray-50`}
                 >
-                  <option value="">Select police station</option>
+                  <option value="">Select police station / upazila</option>
                   {availableThanas.map(thana => (
                     <option key={thana} value={thana}>{thana}</option>
                   ))}
@@ -369,7 +411,7 @@ export default function OfficerRegisterPage() {
                 {errors.thana && <p className="text-red-500 text-xs mt-1">{errors.thana}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Polling Center Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -378,12 +420,12 @@ export default function OfficerRegisterPage() {
                   value={formData.pollingCenterName}
                   onChange={handleInputChange}
                   placeholder="Enter polling center name"
-                  className={`w-full px-4 py-3 border ${errors.pollingCenterName ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.pollingCenterName ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.pollingCenterName && <p className="text-red-500 text-xs mt-1">{errors.pollingCenterName}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Polling Center ID <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -392,7 +434,7 @@ export default function OfficerRegisterPage() {
                   value={formData.pollingCenterId}
                   onChange={handleInputChange}
                   placeholder="e.g., PC-DHK-001"
-                  className={`w-full px-4 py-3 border ${errors.pollingCenterId ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.pollingCenterId ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.pollingCenterId && <p className="text-red-500 text-xs mt-1">{errors.pollingCenterId}</p>}
               </div>
@@ -401,10 +443,10 @@ export default function OfficerRegisterPage() {
 
           {/* Account Credentials */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-700 mb-4">Account Credentials</h3>
+            <h3 className="text-lg font-semibold text-blue-800 mb-4">Account Credentials</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Username <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -413,12 +455,12 @@ export default function OfficerRegisterPage() {
                   value={formData.username}
                   onChange={handleInputChange}
                   placeholder="Choose a username"
-                  className={`w-full px-4 py-3 border ${errors.username ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.username ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -427,12 +469,12 @@ export default function OfficerRegisterPage() {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="Create a strong password"
-                  className={`w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.password ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -441,7 +483,7 @@ export default function OfficerRegisterPage() {
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   placeholder="Re-enter your password"
-                  className={`w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50`}
+                  className={`w-full px-4 py-3 border ${errors.confirmPassword ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
               </div>
@@ -450,14 +492,14 @@ export default function OfficerRegisterPage() {
 
           {/* Document Upload */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-700 mb-4">Document Upload</h3>
+            <h3 className="text-lg font-semibold text-blue-800 mb-4">Document Upload</h3>
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed ${errors.file ? 'border-red-400 bg-red-50' : 'border-blue-300 bg-blue-50'} rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-100 transition-colors`}
+              className={`border-2 border-dashed ${errors.file ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-blue-50'} rounded-xl p-8 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-100 transition-colors`}
             >
               {selectedFile ? (
                 <div className="flex items-center justify-center gap-3">
-                  <div className="bg-blue-500 text-white px-4 py-2 rounded-lg font-medium">
+                  <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
                     {selectedFile.name}
                   </div>
                   <button
@@ -474,13 +516,13 @@ export default function OfficerRegisterPage() {
               ) : (
                 <>
                   <Upload className="w-10 h-10 text-blue-400 mx-auto mb-3" />
-                  <p className="text-gray-700 font-medium">
+                  <p className="text-slate-800 font-medium">
                     Upload NID Copy <span className="text-red-500">*</span>
                   </p>
-                  <p className="text-gray-500 text-sm mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                  <p className="text-slate-600 text-sm mt-1">PDF, JPG, or PNG (Max 5MB)</p>
                   <button
                     type="button"
-                    className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                    className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     Choose File
                   </button>
@@ -510,7 +552,7 @@ export default function OfficerRegisterPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>

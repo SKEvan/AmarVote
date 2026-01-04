@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Upload, X, Eye, Download } from 'lucide-react';
@@ -323,12 +324,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800">
+    <div className="min-h-screen bg-gradient-to-br from-rose-200 via-white to-rose-400 text-slate-900">
       {/* Back to Home Button */}
       <div className="absolute top-6 left-6">
         <Link 
           href="/" 
-          className="inline-flex items-center text-white hover:text-red-100 transition-colors duration-200"
+          className="inline-flex items-center text-rose-700 hover:text-rose-900 transition-colors duration-200"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Home
@@ -337,16 +338,23 @@ export default function RegisterPage() {
 
       {/* Header Section */}
       <div className="pt-16 pb-8 text-center">
-        <div className="w-24 h-24 bg-red-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
+          <div className="text-left">
+            <p className="text-xl font-semibold text-rose-900">AmarVote</p>
+            <p className="text-sm text-rose-600">Secure Election Monitoring</p>
+          </div>
+        </div>
+        <div className="w-24 h-24 bg-rose-500 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl">
           <Users className="w-12 h-12 text-white" strokeWidth={2.5} />
         </div>
-        <h1 className="text-4xl font-bold text-white mb-3">Law Enforcement Registration</h1>
-        <p className="text-red-100 text-lg">Apply for incident response access</p>
+        <h1 className="text-4xl font-bold text-rose-900 mb-3">Law Enforcement Registration</h1>
+        <p className="text-rose-600 text-lg">Apply for incident response access</p>
       </div>
 
       {/* Registration Form */}
       <div className="max-w-4xl mx-auto px-4 pb-12">
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 border border-rose-200">
           <form onSubmit={handleSubmit} className="space-y-8">
             
             {/* Personal Information Section */}
@@ -356,7 +364,7 @@ export default function RegisterPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     Full Name <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -370,7 +378,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     Email Address <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -381,7 +389,7 @@ export default function RegisterPage() {
                     placeholder="email@example.com"
                     className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent ${
                       errors.email 
-                        ? 'border-red-500 focus:ring-red-500' 
+                        ? 'border-red-500 focus:ring-red-500'
                         : 'border-gray-200 focus:ring-red-500'
                     }`}
                     required
@@ -394,7 +402,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     Phone Number <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -406,7 +414,7 @@ export default function RegisterPage() {
                     maxLength={14}
                     className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent ${
                       errors.phone 
-                        ? 'border-red-500 focus:ring-red-500' 
+                        ? 'border-red-500 focus:ring-red-500'
                         : 'border-gray-200 focus:ring-red-500'
                     }`}
                     required
@@ -423,8 +431,8 @@ export default function RegisterPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Service Identity Card <span className="text-red-600">*</span>
+                  <label className="block text-slate-700 font-medium mb-2">
+                    Service Identity Card <span className="text-blue-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -432,7 +440,7 @@ export default function RegisterPage() {
                     value={formData.serviceId}
                     onChange={handleChange}
                     placeholder="Enter your service ID"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -447,7 +455,7 @@ export default function RegisterPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     District <span className="text-red-600">*</span>
                   </label>
                   <select
@@ -466,7 +474,7 @@ export default function RegisterPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     Posted Station (Thana) <span className="text-red-600">*</span>
                   </label>
                   {!showCustomThana ? (
@@ -524,7 +532,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-gray-800 font-medium mb-2">
                     Rank <span className="text-red-600">*</span>
                   </label>
                   <select
@@ -551,12 +559,12 @@ export default function RegisterPage() {
 
             {/* Account Credentials Section */}
             <div>
-              <h2 className="text-2xl font-bold text-red-700 mb-6 pb-3 border-b-2 border-red-200">
+              <h2 className="text-2xl font-bold text-red-800 mb-6 pb-3 border-b-2 border-red-200">
                 Account Credentials
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-slate-700 font-medium mb-2">
                     Username <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -565,12 +573,12 @@ export default function RegisterPage() {
                     value={formData.username}
                     onChange={handleChange}
                     placeholder="Choose a username"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-slate-700 font-medium mb-2">
                     Password <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -579,12 +587,12 @@ export default function RegisterPage() {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Create a strong password"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block text-slate-700 font-medium mb-2">
                     Confirm Password <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -593,7 +601,7 @@ export default function RegisterPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="Re-enter your password"
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -602,18 +610,18 @@ export default function RegisterPage() {
 
             {/* Document Upload Section */}
             <div>
-              <h2 className="text-2xl font-bold text-red-700 mb-6 pb-3 border-b-2 border-red-200">
+              <h2 className="text-2xl font-bold text-red-800 mb-6 pb-3 border-b-2 border-red-200">
                 Document Upload
               </h2>
               
               {!selectedFile ? (
-                <div className="border-2 border-red-300 rounded-2xl p-8 text-center bg-red-50">
+                <div className="border-2 border-red-200 rounded-2xl p-8 text-center bg-red-50">
                   <div className="mb-4">
                     <Upload className="w-12 h-12 text-red-600 mx-auto mb-4" strokeWidth={2} />
-                    <p className="text-gray-700 font-semibold mb-2">
+                    <p className="text-slate-800 font-semibold mb-2">
                       Upload Service Identity Card <span className="text-red-600">*</span>
                     </p>
-                    <p className="text-gray-500 text-sm mb-4">PDF, JPG, or PNG (Max 5MB)</p>
+                    <p className="text-slate-600 text-sm mb-4">PDF, JPG, or PNG (Max 5MB)</p>
                   </div>
                   <input
                     type="file"
@@ -645,7 +653,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={handleRemoveFile}
-                      className="text-red-600 hover:bg-red-100 p-2 rounded-lg transition-colors duration-200"
+                      className="text-red-700 hover:bg-red-100 p-2 rounded-lg transition-colors duration-200"
                       title="Remove file"
                     >
                       <X className="w-5 h-5" />
@@ -671,9 +679,9 @@ export default function RegisterPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                           </div>
-                          <p className="text-gray-700 font-medium">PDF Document</p>
-                          <p className="text-gray-500 text-sm mt-1">{selectedFile.name}</p>
-                          <p className="text-gray-400 text-xs mt-2">Preview not available for PDF files</p>
+                          <p className="text-slate-800 font-medium">PDF Document</p>
+                          <p className="text-slate-600 text-sm mt-1">{selectedFile.name}</p>
+                          <p className="text-slate-500 text-xs mt-2">Preview not available for PDF files</p>
                         </div>
                       ) : null}
                     </div>
@@ -698,7 +706,7 @@ export default function RegisterPage() {
                     />
                     <label
                       htmlFor="fileUploadReplace"
-                      className="inline-flex items-center justify-center bg-white border-2 border-red-600 text-red-600 font-semibold py-2 px-6 rounded-xl hover:bg-red-50 transition-colors duration-200 cursor-pointer"
+                      className="inline-flex items-center justify-center bg-white border-2 border-red-600 text-red-700 font-semibold py-2 px-6 rounded-xl hover:bg-red-50 transition-colors duration-200 cursor-pointer"
                     >
                       Change File
                     </label>

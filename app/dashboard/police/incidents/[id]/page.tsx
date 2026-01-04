@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import { ArrowLeft, AlertTriangle, MapPin, Clock, User, X, Image as ImageIcon } from 'lucide-react';
+import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 export default function PoliceIncidentDetailsPage() {
   const router = useRouter();
@@ -28,6 +29,14 @@ export default function PoliceIncidentDetailsPage() {
         setFetchedIncidentData(found);
         setHandlingNotes(found.lawEnforcementNotes || '');
         setHasAcknowledged(found.status === 'acknowledged');
+
+        // Log incident view
+        const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+        addAuditLog(
+          AuditActions.INCIDENT_VIEWED,
+          `Viewed ${found.type} incident (${found.severity} severity) - ${incidentId}`,
+          userInfo.name || 'Law Enforcement'
+        );
       }
     }
     setLoading(false);
@@ -71,6 +80,15 @@ export default function PoliceIncidentDetailsPage() {
     setFetchedIncidentData(updatedIncident);
     setHasAcknowledged(true);
     setShowAcknowledgeModal(false);
+
+    // Log incident acknowledgement
+    const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+    addAuditLog(
+      AuditActions.INCIDENT_ACKNOWLEDGED,
+      `Acknowledged ${incident.type} incident (${incident.severity}) - ${incidentId}: ${handlingNotes.substring(0, 100)}`,
+      userInfo.name || 'Law Enforcement'
+    );
+
     alert('Incident acknowledged successfully!');
   };
 

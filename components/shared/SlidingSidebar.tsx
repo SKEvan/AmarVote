@@ -5,20 +5,34 @@ import { useState } from 'react';
 import { Menu, X, Map, TrendingUp, FileCheck, Home, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export default function SlidingSidebar() {
-  const [open, setOpen] = useState(false);
+type SlidingSidebarProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  topOffsetClass?: string; // e.g., 'top-16' to leave room for a sticky header
+};
+
+export default function SlidingSidebar({ open: controlledOpen, onOpenChange, hideTrigger = false, topOffsetClass }: SlidingSidebarProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = (val: boolean) => {
+    if (onOpenChange) onOpenChange(val);
+    else setUncontrolledOpen(val);
+  };
   // Sidebar only handles navigation; notifications are shown in header via NotificationBell
   const router = useRouter();
 
   return (
     <div>
-      <div className="fixed top-4 left-4 z-50">
-        <button onClick={() => setOpen(true)} className="p-2 bg-white rounded shadow-md">
-          <Menu className="w-5 h-5" />
-        </button>
-      </div>
+      {!hideTrigger && (
+        <div className="fixed top-4 left-4 z-50">
+          <button onClick={() => setOpen(true)} className="p-2 bg-white rounded shadow-md">
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
-      <div className={`fixed inset-y-0 left-0 transform ${open ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300`} style={{ zIndex: 9999 }}>
+      <div className={`fixed ${topOffsetClass ? `${topOffsetClass} bottom-0` : 'inset-y-0'} left-0 transform ${open ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300`} style={{ zIndex: 9999 }}>
         <div className="w-64 bg-white h-full border-r border-gray-200 shadow-lg relative z-50">
           <div className="p-4 flex items-center justify-between border-b border-gray-100">
             <div className="flex items-center gap-3">

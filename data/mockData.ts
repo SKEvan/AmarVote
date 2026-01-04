@@ -17,142 +17,79 @@ export interface SystemUser {
   pollingCenterId?: string;
   pollingCenterName?: string;
   thana?: string;
+  nidDocument?: string;
 }
 
-// Default users (hardcoded for demo)
+// Default users include the ultimate BEC admin account
 const defaultUsers: SystemUser[] = [
   {
     id: 'USR-001',
     username: 'admin',
     password: 'admin123',
-    name: 'Lt Tanvir Ahmed',
-    email: 'tanvir.ahmed@bec.gov.bd',
+    name: 'BEC Admin',
+    email: 'admin@bec.gov.bd',
     role: 'Admin',
     status: 'Active',
-    location: 'Dhaka',
-    joinedDate: '2024-01-15',
-    lastActive: '2 hours ago'
+    location: 'BEC HQ',
+    joinedDate: new Date().toISOString().split('T')[0],
+    lastActive: 'Just now',
   },
-  {
-    id: 'USR-002',
-    username: 'officer',
-    password: 'officer123',
-    name: 'Md. Kamal Hossain',
-    email: 'kamal.hossain@bec.gov.bd',
-    role: 'Officer',
-    status: 'Active',
-    location: 'Chattogram',
-    joinedDate: '2024-02-20',
-    lastActive: '1 day ago'
-  },
-  {
-    id: 'USR-003',
-    username: 'rahman',
-    password: 'rahman123',
-    name: 'Inspector Rahim Khan',
-    email: 'rahim.khan@police.gov.bd',
-    role: 'Police',
-    status: 'Active',
-    location: 'Sylhet',
-    joinedDate: '2024-03-10',
-    lastActive: '3 hours ago'
-  },
-  {
-    id: 'USR-004',
-    username: 'fatima',
-    password: 'fatima123',
-    name: 'Ms. Fatima Begum',
-    email: 'fatima.begum@bec.gov.bd',
-    role: 'Officer',
-    status: 'Pending',
-    location: 'Rajshahi',
-    joinedDate: '2024-11-25',
-    lastActive: 'Never'
-  },
-  {
-    id: 'USR-005',
-    username: 'ali',
-    password: 'ali123',
-    name: 'ASP Mohammad Ali',
-    email: 'mohammad.ali@police.gov.bd',
-    role: 'Police',
-    status: 'Inactive',
-    location: 'Khulna',
-    joinedDate: '2024-01-30',
-    lastActive: '2 weeks ago'
-  },
-  {
-    id: 'USR-006',
-    username: 'shamima',
-    password: 'shamima123',
-    name: 'Dr. Shamima Rahman',
-    email: 'shamima.rahman@bec.gov.bd',
-    role: 'Admin',
-    status: 'Active',
-    location: 'Dhaka',
-    joinedDate: '2023-12-01',
-    lastActive: '30 mins ago'
-  },
-  {
-    id: 'USR-007',
-    username: 'nazrul',
-    password: 'nazrul123',
-    name: 'Nazrul Islam',
-    email: 'nazrul.islam@bec.gov.bd',
-    role: 'Officer',
-    status: 'Active',
-    location: 'Barisal',
-    joinedDate: '2024-04-15',
-    lastActive: '5 hours ago'
-  },
-  {
-    id: 'USR-008',
-    username: 'jasim',
-    password: 'jasim123',
-    name: 'SI Jasim Uddin',
-    email: 'jasim.uddin@police.gov.bd',
-    role: 'Police',
-    status: 'Pending',
-    location: 'Rangpur',
-    joinedDate: '2024-12-01',
-    lastActive: 'Never'
-  }
 ];
 
+// Known demo users to purge from older localStorage state (keep the real admin)
+const DEMO_USER_EMAILS = new Set([
+  'tanvir.ahmed@bec.gov.bd',
+  'kamal.hossain@bec.gov.bd',
+  'rahim.khan@police.gov.bd',
+  'fatima.begum@bec.gov.bd',
+  'mohammad.ali@police.gov.bd',
+  'shamima.rahman@bec.gov.bd',
+  'nazrul.islam@bec.gov.bd',
+  'jasim.uddin@police.gov.bd',
+]);
+
+const DEMO_USER_USERNAMES = new Set(['officer', 'police']);
+
+const ensureAdminPresent = (users: SystemUser[]): SystemUser[] => {
+  const hasAdmin = users.some((u) => u.username.toLowerCase() === 'admin' && u.role === 'Admin');
+  if (hasAdmin) return users;
+  // Insert the default admin at the front for visibility
+  return [defaultUsers[0], ...users];
+};
+
+const purgeDemoUsers = (users: SystemUser[]): SystemUser[] => {
+  const filtered = users.filter(
+    (u) => !DEMO_USER_EMAILS.has(u.email.toLowerCase()) && !DEMO_USER_USERNAMES.has(u.username.toLowerCase())
+  );
+
+  // If everything was demo, return an empty array
+  return filtered;
+};
+
 const USERS_STORAGE_KEY = 'amarvote_users';
-const USERS_VERSION_KEY = 'amarvote_users_version';
-const CURRENT_VERSION = '2'; // Increment this when default users change
 
 // Get users from localStorage or return defaults
 export const getUsers = (): SystemUser[] => {
   if (typeof window === 'undefined') return defaultUsers;
-  
+
   try {
-    const storedVersion = localStorage.getItem(USERS_VERSION_KEY);
     const stored = localStorage.getItem(USERS_STORAGE_KEY);
-    
-    // If version matches and we have stored data, use it
-    if (storedVersion === CURRENT_VERSION && stored) {
-      return JSON.parse(stored);
-    }
-    
-    // Otherwise, initialize with defaults (preserving any new registered users if possible)
-    if (stored && storedVersion !== CURRENT_VERSION) {
-      // Merge: keep registered users that aren't in defaults
-      const oldUsers: SystemUser[] = JSON.parse(stored);
-      const defaultIds = defaultUsers.map(u => u.id);
-      const newRegisteredUsers = oldUsers.filter(u => !defaultIds.includes(u.id));
-      const mergedUsers = [...defaultUsers, ...newRegisteredUsers];
-      localStorage.setItem(USERS_VERSION_KEY, CURRENT_VERSION);
-      saveUsers(mergedUsers);
-      return mergedUsers;
+    if (stored) {
+      const parsed: SystemUser[] = JSON.parse(stored);
+      const sanitized = ensureAdminPresent(purgeDemoUsers(parsed));
+
+      // Write back if demo users were removed
+      if (sanitized.length !== parsed.length) {
+        saveUsers(sanitized);
+      }
+
+      return sanitized;
     }
   } catch (e) {
     console.error('Error loading users:', e);
   }
-  
-  // Initialize with default users
-  localStorage.setItem(USERS_VERSION_KEY, CURRENT_VERSION);
+
+  // Initialize empty store
   saveUsers(defaultUsers);
   return defaultUsers;
 };
@@ -290,6 +227,7 @@ export const registerPresidingOfficerUser = (userData: {
   designation: string;
   username: string;
   password: string;
+  nidDocument?: string;
 }): SystemUser => {
   return addUser({
     username: userData.username,
@@ -306,91 +244,12 @@ export const registerPresidingOfficerUser = (userData: {
     rank: userData.designation,
     pollingCenterId: userData.pollingCenterId,
     pollingCenterName: userData.pollingStation,
-    thana: userData.thana
+    thana: userData.thana,
+    nidDocument: userData.nidDocument
   });
 };
 
-// ====== INCIDENTS DATA ======
-export const incidents = [
-  {
-    id: 'INC-001',
-    title: 'Voter intimidation reported',
-    type: 'Intimidation',
-    severity: 'HIGH',
-    division: 'Dhaka',
-    location: 'Dhaka-10, Mirpur Polling Station',
-    lat: 23.8223,
-    lng: 90.3654,
-    status: 'pending',
-    reportedTime: '2025-12-27 10:45 AM',
-    reportedBy: 'Officer Rahman',
-  },
-  {
-    id: 'INC-002',
-    title: 'Ballot box tampering attempt',
-    type: 'Tampering',
-    severity: 'CRITICAL',
-    division: 'Chittagong',
-    location: 'Chittagong-5, Agrabad Station',
-    lat: 22.3569,
-    lng: 91.7832,
-    status: 'responded',
-    reportedTime: '2025-12-27 11:20 AM',
-    reportedBy: 'Officer Hassan',
-  },
-  {
-    id: 'INC-003',
-    title: 'Technical malfunction - EVM',
-    type: 'Technical',
-    severity: 'MEDIUM',
-    division: 'Rajshahi',
-    location: 'Rajshahi-3, Boalia Thana',
-    lat: 24.3745,
-    lng: 88.6042,
-    status: 'resolved',
-    reportedTime: '2025-12-27 09:15 AM',
-    reportedBy: 'Officer Khan',
-  },
-  {
-    id: 'INC-004',
-    title: 'Crowd control issue',
-    type: 'Control',
-    severity: 'MEDIUM',
-    division: 'Dhaka',
-    location: 'Dhaka-6, Tejgaon',
-    lat: 23.7850,
-    lng: 90.3650,
-    status: 'pending',
-    reportedTime: '2025-12-27 10:05 AM',
-    reportedBy: 'Officer Ahmed',
-  },
-  {
-    id: 'INC-005',
-    title: 'Unknown individuals photographing voters',
-    type: 'Unauthorized Activity',
-    severity: 'HIGH',
-    division: 'Khulna',
-    location: 'Khulna-2, Khulna City',
-    lat: 22.8456,
-    lng: 89.5671,
-    status: 'pending',
-    reportedTime: '2025-12-27 11:50 AM',
-    reportedBy: 'Officer Karim',
-  },
-];
-
-export const logs = [
-  { id: 1, timestamp: '20/12/2025 16:23:15', user: 'officer@dhaka-6', action: 'VOTE SUBMITTED', details: 'Submitted votes for Tejgaon Polling Center (DHK-PS-006)', ip: '103.45.12.34' },
-  { id: 2, timestamp: '20/12/2025 16:15:42', user: 'admin@bec', action: 'USER CREATED', details: 'Created new presiding officer account for Comilla-2', ip: '103.45.12.1' },
-  { id: 3, timestamp: '20/12/2025 16:05:18', user: 'officer@mirpur', action: 'INCIDENT REPORTED', details: 'Reported voter intimidation incident (INC-001)', ip: '103.45.12.56' },
-  { id: 4, timestamp: '20/12/2025 15:58:33', user: 'law_enforcement@dhaka', action: 'INCIDENT VIEWED', details: 'Viewed incident details for INC-002', ip: '103.45.12.89' },
-  { id: 5, timestamp: '20/12/2025 15:45:21', user: 'admin@bec', action: 'DASHBOARD ACCESSED', details: 'Accessed admin dashboard and viewed statistics', ip: '103.45.12.1' },
-  { id: 6, timestamp: '20/12/2025 15:30:55', user: 'officer@chittagong-5', action: 'VOTE SUBMITTED', details: 'Submitted votes for Agrabad Polling Center (CTG-PS-005)', ip: '103.45.13.22' },
-  { id: 7, timestamp: '20/12/2025 15:12:09', user: 'law_enforcement@rajshahi', action: 'INCIDENT ACKNOWLEDGED', details: 'Acknowledged and responded to incident INC-003', ip: '103.45.14.45' },
-  { id: 8, timestamp: '20/12/2025 14:55:44', user: 'admin@bec', action: 'PERMISSIONS MODIFIED', details: 'Updated permissions for law enforcement role', ip: '103.45.12.1' },
-];
-
-export const notifications = [
-  { id: 'NOT-001', incidentId: 'INC-002', title: 'New High Priority Incident', message: 'Ballot box tampering attempt', time: '2 minutes ago', priority: 'HIGH', read: false },
-  { id: 'NOT-002', incidentId: 'INC-004', title: 'New Medium Priority Incident', message: 'Crowd control issue', time: '15 minutes ago', priority: 'MEDIUM', read: false },
-];
+// Legacy exports kept for compatibility but empty to prevent demo seeding
+export const incidents: any[] = [];
+export const logs: any[] = [];
+export const notifications: any[] = [];

@@ -10,7 +10,7 @@ type Props = {
   showEditProfile?: boolean;
 };
 
-export default function UserProfileControls({ role = 'admin', onLogout, showEditProfile = false }: Props) {
+export default function UserProfileControls({ role = 'admin', onLogout, showEditProfile = true }: Props) {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; role: string; avatar?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -61,13 +61,22 @@ export default function UserProfileControls({ role = 'admin', onLogout, showEdit
   };
 
   const handleEditProfile = () => {
+    if (!showEditProfile) return;
     setShowDropdown(false);
-    if (role === 'police') {
-      router.push('/dashboard/police/profile');
-    } else if (role === 'admin') {
-      router.push('/dashboard/admin/profile');
-    } else if (role === 'officer') {
-      router.push('/dashboard/officer/profile');
+
+    const profilePath = role === 'police'
+      ? '/dashboard/police/profile'
+      : role === 'admin'
+      ? '/dashboard/admin/profile'
+      : role === 'officer'
+      ? '/dashboard/officer/profile'
+      : '/dashboard/profile';
+
+    // Use router.push for SPA navigation with a hard fallback to ensure it works everywhere
+    try {
+      router.push(profilePath);
+    } catch (e) {
+      window.location.href = profilePath;
     }
   };
 
@@ -115,18 +124,20 @@ export default function UserProfileControls({ role = 'admin', onLogout, showEdit
             
             <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl overflow-hidden z-40 border border-gray-200">
               {/* Edit Profile Option */}
-              <button
-                onClick={handleEditProfile}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left"
-              >
-                <div className={`w-10 h-10 rounded-full ${colors.bg} bg-opacity-10 flex items-center justify-center`}>
-                  <UserCog className={`w-5 h-5 ${colors.text}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">Edit Profile</p>
-                  <p className="text-xs text-gray-500">Update your info</p>
-                </div>
-              </button>
+              {showEditProfile && (
+                <button
+                  onClick={handleEditProfile}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className={`w-10 h-10 rounded-full ${colors.bg} bg-opacity-10 flex items-center justify-center`}>
+                    <UserCog className={`w-5 h-5 ${colors.text}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Edit Profile</p>
+                    <p className="text-xs text-gray-500">Update your info</p>
+                  </div>
+                </button>
+              )}
             </div>
           </>
         )}

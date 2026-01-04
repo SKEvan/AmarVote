@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import PageTransition from '@/components/PageTransition'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -11,6 +12,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'AmarVote - Secure Election Monitoring & Management System',
   description: 'Real-time incident tracking, vote management, and automated alerts for transparent elections',
+  icons: {
+    icon: '/images/logo-AmarVote.png',
+    shortcut: '/images/logo-AmarVote.png',
+    apple: '/images/logo-AmarVote.png'
+  }
 }
 
 export default function RootLayout({
@@ -20,7 +26,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <PageTransition>{children}</PageTransition>
+      </body>
     </html>
   )
 }

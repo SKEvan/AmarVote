@@ -8,6 +8,30 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+/* Global page transition */
+@keyframes page-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: saturate(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: saturate(1);
+  }
+}
+
+.page-transition {
+  animation: page-fade-slide 0.45s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+}
+
 * {
   scroll-behavior: smooth;
 }

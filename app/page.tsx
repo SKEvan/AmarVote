@@ -9,8 +9,15 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 text-center">
         {/* Logo and Title */}
         <div className="flex items-center justify-center mb-8 animate-fade-in">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl flex items-center justify-center mr-4 sm:mr-5 shadow-2xl shadow-emerald-500/30 animate-float backdrop-blur-sm">
-            <Shield className="w-9 h-9 sm:w-11 sm:h-11 text-white" strokeWidth={2.5} />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mr-4 sm:mr-5 animate-float">
+            <Image
+              src="/images/logo-AmarVote.png"
+              alt="AmarVote logo"
+              width={80}
+              height={80}
+              className="w-full h-full rounded-2xl shadow-2xl shadow-emerald-500/30 object-cover"
+              priority
+            />
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight">
             Amar<span className="text-emerald-400">Vote</span>
@@ -242,9 +249,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center">
-                <Shield className="w-4 h-4 text-white" />
-              </div>
+              <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={28} height={28} className="rounded-md" />
               <span>AmarVote</span>
               <span className="ml-4">© 2026 AmarVote. All rights reserved.</span>
             </div>
