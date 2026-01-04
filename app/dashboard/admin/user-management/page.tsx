@@ -7,6 +7,7 @@ import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { getUsers, saveUsers, addUser, updateUserStatus, deleteUser, SystemUser } from '@/data/mockData';
+import { addAuditLog, AuditActions } from '@/lib/auditLog';
 import { 
   LogOut, 
   FileText, 
@@ -49,6 +50,9 @@ interface User {
   serviceId?: string;
   rank?: string;
   avatar?: string;
+  nidDocument?: string;
+  pollingCenterId?: string;
+  pollingCenterName?: string;
 }
 
 export default function UserManagementPage() {
@@ -100,7 +104,10 @@ export default function UserManagementPage() {
       password: u.password,
       serviceId: u.serviceId,
       rank: u.rank,
-      avatar: u.avatar
+      avatar: u.avatar,
+      nidDocument: u.nidDocument,
+      pollingCenterId: u.pollingCenterId,
+      pollingCenterName: u.pollingCenterName
     })));
   };
   
@@ -178,8 +185,20 @@ export default function UserManagementPage() {
 
   // Approve user
   const handleApproveUser = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    
     // Update in shared store
     updateUserStatus(userId, 'Active');
+    
+    // Log user approval
+    if (user) {
+      const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
+      addAuditLog(
+        AuditActions.USER_APPROVED,
+        `Approved ${user.role} account: ${user.name} (${user.username || user.email})`,
+        adminInfo.name || 'Admin'
+      );
+    }
     
     // Refresh from database
     refreshUsers();
@@ -189,8 +208,20 @@ export default function UserManagementPage() {
   // Reject user
   const handleRejectUser = (userId: string) => {
     if (confirm('Are you sure you want to reject this user? This will delete their account.')) {
+      const user = users.find(u => u.id === userId);
+      
       // Delete from shared store
       deleteUser(userId);
+
+      // Log user rejection
+      if (user) {
+        const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
+        addAuditLog(
+          AuditActions.USER_REJECTED,
+          `Rejected and deleted ${user.role} account: ${user.name} (${user.username || user.email})`,
+          adminInfo.name || 'Admin'
+        );
+      }
       
       // Refresh from database
       refreshUsers();
@@ -226,9 +257,15 @@ export default function UserManagementPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-green-600 text-white px-6 py-4">
+      <header className="bg-green-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-green-700 rounded transition-colors"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
             <button
               onClick={() => router.back()}
               className="p-2 hover:bg-green-700 rounded transition-colors"
@@ -246,7 +283,7 @@ export default function UserManagementPage() {
       </header>
 
       {/* Sidebar */}
-      <SlidingSidebar />
+  <SlidingSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} hideTrigger />
 
       {/* Main Content */}
       <div className="transition-all duration-300">
@@ -705,6 +742,10 @@ export default function UserManagementPage() {
                     <p className="text-gray-800 font-medium">{selectedUser.email}</p>
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Service ID / Employee ID</label>
+                    <p className="text-gray-800 font-medium">{selectedUser.serviceId || 'N/A'}</p>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Phone Number</label>
                     <p className="text-gray-800 font-medium">{selectedUser.phone || 'N/A'}</p>
                   </div>
@@ -725,7 +766,7 @@ export default function UserManagementPage() {
                   <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                     <div>
                       <label className="block text-sm font-medium text-gray-500 mb-1">
-                        {selectedUser.role === 'Police' ? 'Service ID' : 'Employee ID'}
+                        {selectedUser.role === 'Police' ? 'Service ID' : 'NID'}
                       </label>
                       <p className="text-gray-800 font-medium">{selectedUser.serviceId || 'N/A'}</p>
                     </div>
@@ -735,6 +776,18 @@ export default function UserManagementPage() {
                       </label>
                       <p className="text-gray-800 font-medium">{selectedUser.rank || 'N/A'}</p>
                     </div>
+                    {selectedUser.role === 'Officer' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">Polling Center ID</label>
+                          <p className="text-gray-800 font-medium">{selectedUser.pollingCenterId || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">Polling Center Name</label>
+                          <p className="text-gray-800 font-medium">{selectedUser.pollingCenterName || 'N/A'}</p>
+                        </div>
+                      </>
+                    )}
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-500 mb-1">
                         {selectedUser.role === 'Police' ? 'Posted Station / Location' : 'Polling Station / Location'}
@@ -744,6 +797,66 @@ export default function UserManagementPage() {
                         <p className="text-gray-800 font-medium">{selectedUser.location}</p>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* NID Document - Always show for Officers */}
+              {selectedUser.role === 'Officer' && (
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-gray-500" />
+                    Attached NID Document
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    {selectedUser.nidDocument ? (
+                      <>
+                        {selectedUser.nidDocument.startsWith('data:image') ? (
+                          <div className="space-y-3">
+                            <img 
+                              src={selectedUser.nidDocument} 
+                              alt="NID Document" 
+                              className="w-full max-w-md mx-auto rounded-lg border-2 border-gray-200 shadow-sm"
+                            />
+                            <a
+                              href={selectedUser.nidDocument}
+                              download={`NID_${selectedUser.name.replace(/\s+/g, '_')}.jpg`}
+                              className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Download Image
+                            </a>
+                          </div>
+                        ) : selectedUser.nidDocument.startsWith('data:application/pdf') ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-center p-8 bg-white border-2 border-dashed border-gray-300 rounded-lg">
+                              <div className="text-center">
+                                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-3" />
+                                <p className="text-sm text-gray-600 font-medium mb-1">PDF Document</p>
+                                <p className="text-xs text-gray-500">Click download to view</p>
+                              </div>
+                            </div>
+                            <a
+                              href={selectedUser.nidDocument}
+                              download={`NID_${selectedUser.name.replace(/\s+/g, '_')}.pdf`}
+                              className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Download PDF
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">Document format not supported for preview</p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center p-8 bg-white border-2 border-dashed border-gray-300 rounded-lg">
+                        <div className="text-center">
+                          <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No NID document attached</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
