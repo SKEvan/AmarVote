@@ -41,7 +41,7 @@ export default function AdminProfileViewPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-green-600 text-white px-6 py-4 shadow-md">
+      <header className="bg-green-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-4">
           <Link 
             href="/dashboard/admin"
@@ -54,7 +54,7 @@ export default function AdminProfileViewPage() {
             <p className="text-green-100 text-sm">View your profile information</p>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
