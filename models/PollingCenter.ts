@@ -110,6 +110,7 @@ const PollingCenterSchema = new Schema<IPollingCenter>(
       type: Number,
       required: true,
       min: 0,
+      max: 50000, // Reasonable maximum for a single polling center
       default: 0,
     },
     assignedOfficer: {

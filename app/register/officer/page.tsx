@@ -166,11 +166,51 @@ export default function OfficerRegisterPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+    // Name validation - 3-50 chars, letters/spaces/dots only
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
+    } else if (formData.fullName.trim().length < 3) {
+      newErrors.fullName = 'Name must be at least 3 characters';
+    } else if (formData.fullName.trim().length > 50) {
+      newErrors.fullName = 'Name cannot exceed 50 characters';
+    } else if (!/^[a-zA-Z\s.]+$/.test(formData.fullName)) {
+      newErrors.fullName = 'Name can only contain letters, spaces, and dots';
+    }
+    
     if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-    if (!formData.nid.trim()) newErrors.nid = 'NID is required';
+    else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
+    } else {
+      // Additional validation: domain name must be at least 2 characters before extension
+      const emailParts = formData.email.split('@');
+      if (emailParts.length === 2) {
+        const domainParts = emailParts[1].split('.');
+        if (domainParts.length >= 2 && domainParts[0].length < 2) {
+          newErrors.email = 'Invalid email domain (e.g., tanvir@g.com is not valid)';
+        }
+      }
+    }
+    
+    // Phone validation - must be 11 digits starting with 01 OR 14 characters starting with +8801
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else {
+      const cleanPhone = formData.phone.trim().replace(/\s/g, '');
+      const isValid11Digit = /^01[3-9]\d{8}$/.test(cleanPhone) && cleanPhone.length === 11;
+      const isValid14Char = /^\+8801[3-9]\d{8}$/.test(cleanPhone) && cleanPhone.length === 14;
+      
+      if (!isValid11Digit && !isValid14Char) {
+        newErrors.phone = 'Phone must be 11 digits starting with 01 (e.g., 01712345678) or 14 characters starting with +8801';
+      }
+    }
+    
+    // NID validation - must be exactly 10 digits
+    if (!formData.nid.trim()) {
+      newErrors.nid = 'NID is required';
+    } else if (!/^\d{10}$/.test(formData.nid.trim())) {
+      newErrors.nid = 'NID must be exactly 10 digits';
+    }
+    
     if (!formData.pollingCenterName.trim()) newErrors.pollingCenterName = 'Polling center name is required';
     if (!formData.pollingCenterId.trim()) newErrors.pollingCenterId = 'Polling center ID is required';
     if (!formData.division) newErrors.division = 'Division is required';
@@ -221,6 +261,7 @@ export default function OfficerRegisterPage() {
           email: formData.email,
           name: formData.fullName,
           phone: formData.phone,
+          nid: formData.nid,
           role: 'Officer',
           pollingCenterName: formData.pollingCenterName,
           pollingCenterId: formData.pollingCenterId,
@@ -313,7 +354,11 @@ export default function OfficerRegisterPage() {
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  placeholder="Enter your full name"
+                  placeholder="Enter your full name (letters, spaces, dots only)"
+                  minLength={3}
+                  maxLength={50}
+                  pattern="[a-zA-Z\s.]+"
+                  title="Name can only contain letters, spaces, and dots (3-50 characters)"
                   className={`w-full px-4 py-3 border ${errors.fullName ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
@@ -341,7 +386,7 @@ export default function OfficerRegisterPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  placeholder="+880 1XXX-XXXXXX"
+                  placeholder="01712345678 or +8801712345678"
                   className={`w-full px-4 py-3 border ${errors.phone ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
@@ -355,7 +400,8 @@ export default function OfficerRegisterPage() {
                   name="nid"
                   value={formData.nid}
                   onChange={handleInputChange}
-                  placeholder="Enter your NID number"
+                  placeholder="10 digit NID (e.g., 1234567890)"
+                  maxLength={10}
                   className={`w-full px-4 py-3 border ${errors.nid ? 'border-blue-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 placeholder-slate-400`}
                 />
                 {errors.nid && <p className="text-red-500 text-xs mt-1">{errors.nid}</p>}

@@ -7,6 +7,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   phone?: string;
+  nid?: string;
   role: 'Admin' | 'Officer' | 'Police';
   status: 'Active' | 'Inactive' | 'Pending';
   location: string;
@@ -42,6 +43,15 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: true,
       trim: true,
+      minlength: [3, 'Name must be at least 3 characters'],
+      maxlength: [50, 'Name cannot exceed 50 characters'],
+      validate: {
+        validator: function(v: string) {
+          // Only letters, spaces, and dots allowed
+          return /^[a-zA-Z\s.]+$/.test(v);
+        },
+        message: 'Name can only contain letters, spaces, and dots'
+      }
     },
     email: {
       type: String,
@@ -49,11 +59,45 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+      match: [/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Please enter a valid email address'],
     },
     phone: {
       type: String,
       trim: true,
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          // Must be exactly 11 digits starting with 01 OR exactly 14 characters starting with +8801
+          const cleanPhone = v.replace(/\s/g, ''); // Remove spaces
+          
+          // Check for +8801 format (14 characters total)
+          if (cleanPhone.startsWith('+8801')) {
+            return cleanPhone.length === 14 && /^\+8801[3-9]\d{8}$/.test(cleanPhone);
+          }
+          
+          // Check for 01 format (11 digits)
+          if (cleanPhone.startsWith('01')) {
+            return cleanPhone.length === 11 && /^01[3-9]\d{8}$/.test(cleanPhone);
+          }
+          
+          return false;
+        },
+        message: 'Phone number must be 11 digits starting with 01 (e.g., 01712345678) or 14 characters starting with +8801 (e.g., +8801712345678)'
+      }
+    },
+    nid: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true, // Allows multiple null values but enforces uniqueness for non-null values
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          // Must be exactly 10 digits
+          return /^\d{10}$/.test(v);
+        },
+        message: 'NID must be exactly 10 digits'
+      }
     },
     role: {
       type: String,
@@ -91,11 +135,11 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Create indexes for faster queries
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
+// Create indexes for faster queries (email and username already indexed by unique constraint)
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ pollingCenterId: 1, status: 1 });
+UserSchema.index({ deletedAt: 1 }); // For soft delete filtering
+UserSchema.index({ nid: 1 }, { unique: true, sparse: true }); // NID uniqueness
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 

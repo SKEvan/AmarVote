@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import PageTransition from '@/components/PageTransition'
+import GlobalLoading from '@/components/GlobalLoading'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className={inter.className}>
+        <GlobalLoading />
         <PageTransition>{children}</PageTransition>
       </body>
     </html>

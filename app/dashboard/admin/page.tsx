@@ -29,7 +29,7 @@ import {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -445,8 +445,12 @@ export default function AdminDashboard() {
 
           {/* Vote Count by Party Chart */}
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Vote Count by Party</h2>
-            <p className="text-sm text-gray-500 mb-6">Party-wise vote tracking</p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Vote Count by Party</h2>
+                <p className="text-sm text-gray-500 mt-1">Party-wise vote tracking</p>
+              </div>
+            </div>
             
             <div className="flex items-end justify-around h-64 gap-4 pb-8 pt-6">
               {partyVotes.map((party) => {
