@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
+import { generateToken } from '@/lib/jwt';
+import {
+  isRateLimited,
+  recordFailedAttempt,
+  clearFailedAttempts,
+  getBlockedTimeRemaining,
+} from '@/lib/rateLimit';
 
 // POST /api/auth/login - Authenticate user
 export async function POST(request: NextRequest) {
@@ -15,6 +22,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Username, password, and role are required' },
         { status: 400 }
+      );
+    }
+
+    // Create identifier for rate limiting (username + role)
+    const rateLimitId = `${username.toLowerCase()}_${role.toLowerCase()}`;
+
+    // Check rate limiting
+    if (isRateLimited(rateLimitId)) {
+      const remainingMs = getBlockedTimeRemaining(rateLimitId);
+      const remainingMinutes = Math.ceil(remainingMs / 60000);
+      
+      return NextResponse.json(
+        {
+          error: `Too many failed login attempts. Please try again in ${remainingMinutes} minute(s).`,
+          blockedFor: remainingMinutes,
+        },
+        { status: 429 }
       );
     }
 
@@ -38,8 +62,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      // Record failed attempt
+      const attemptInfo = recordFailedAttempt(rateLimitId);
+      
       return NextResponse.json(
-        { error: 'Invalid credentials. Please check your username, password, and selected role.' },
+        {
+          error: 'Invalid credentials. Please check your username, password, and selected role.',
+          attemptsLeft: attemptInfo.blocked ? 0 : attemptInfo.attemptsLeft,
+        },
         { status: 401 }
       );
     }
@@ -48,8 +78,24 @@ export async function POST(request: NextRequest) {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      // Record failed attempt
+      const attemptInfo = recordFailedAttempt(rateLimitId);
+      
+      if (attemptInfo.blocked) {
+        return NextResponse.json(
+          {
+            error: 'Too many failed login attempts. Your account has been temporarily blocked for 15 minutes.',
+            blockedUntil: attemptInfo.blockedUntil,
+          },
+          { status: 429 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'Invalid credentials. Please check your username, password, and selected role.' },
+        {
+          error: 'Invalid credentials. Please check your username, password, and selected role.',
+          attemptsLeft: attemptInfo.attemptsLeft,
+        },
         { status: 401 }
       );
     }
@@ -69,11 +115,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Clear failed attempts on successful login
+    clearFailedAttempts(rateLimitId);
+
     // Update last active
     user.lastActive = new Date().toLocaleString();
     await user.save();
 
-    // Return user info (successful login)
+    // Generate JWT token
+    const token = generateToken({
+      userId: user._id.toString(),
+      username: user.username,
+      role: user.role,
+      email: user.email,
+    });
+
+    // Return user info with token
     const userResponse = {
       id: user._id.toString(),
       username: user.username,
@@ -94,6 +151,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Login successful',
         user: userResponse,
+        token, // JWT token for authentication
       },
       { status: 200 }
     );
