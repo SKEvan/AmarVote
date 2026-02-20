@@ -59,7 +59,37 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Please enter a valid email address'],
+      validate: {
+        validator: function(v: string) {
+          if (!v) return false;
+          
+          const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+          if (!emailRegex.test(v)) return false;
+          
+          const emailParts = v.split('@');
+          if (emailParts.length !== 2) return false;
+          
+          const [localPart, domainPart] = emailParts;
+          
+          // Local part validations
+          if (localPart.length < 1 || localPart.length > 64) return false;
+          if (localPart.startsWith('.') || localPart.endsWith('.') || localPart.includes('..')) return false;
+          
+          // Domain part validations
+          const domainParts = domainPart.split('.');
+          if (domainParts.length < 2) return false;
+          
+          // Domain name must be at least 2 characters
+          if (domainParts[0].length < 2) return false;
+          
+          // TLD must be at least 2 characters and only letters
+          const tld = domainParts[domainParts.length - 1];
+          if (!/^[a-zA-Z]{2,}$/.test(tld)) return false;
+          
+          return true;
+        },
+        message: 'Please enter a valid email address'
+      }
     },
     phone: {
       type: String,

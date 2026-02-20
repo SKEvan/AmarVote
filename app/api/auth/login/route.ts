@@ -13,7 +13,19 @@ import {
 // POST /api/auth/login - Authenticate user
 export async function POST(request: NextRequest) {
   try {
-    await dbConnect();
+    // First try to connect to the database
+    try {
+      await dbConnect();
+    } catch (dbError: any) {
+      console.error('Database connection failed:', dbError.message);
+      return NextResponse.json(
+        { 
+          error: 'Database connection unavailable. Please try again later.',
+          details: process.env.NODE_ENV === 'development' ? `DB Error: ${dbError.message}` : undefined
+        },
+        { status: 503 }
+      );
+    }
 
     const body = await request.json();
     const { username, password, role } = body;
@@ -157,6 +169,26 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Error during login:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle database connection errors
+    if (error.message?.includes('connect') || error.code === 'ECONNREFUSED') {
+      return NextResponse.json({
+        error: 'Database connection failed. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, { status: 503 });
+    }
+    
+    // Handle network/timeout errors
+    if (error.name === 'MongooseServerSelectionError' || error.message?.includes('timeout')) {
+      return NextResponse.json({
+        error: 'Database server is unavailable. Please try again in a few minutes.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, { status: 503 });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Login failed. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }
