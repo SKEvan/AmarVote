@@ -6,6 +6,9 @@ import ShieldIcon from '@/components/shared/ShieldIcon';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
+import NotificationBanner from '@/components/NotificationBanner';
+import { useNotification } from '@/lib/useNotification';
+import { ValidationUtils } from '@/lib/validation';
 import { 
   LogOut, 
   FileText, 
@@ -79,6 +82,9 @@ export default function UserManagementPage() {
     username: ''
   });
 
+  // Notification hook
+  const { notification, showError, showSuccess, showInfo, clearNotification } = useNotification();
+
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout?')) {
       router.push('/');
@@ -151,7 +157,21 @@ export default function UserManagementPage() {
   // Add new user
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.location || !newUser.password || !newUser.username) {
-      alert('Please fill all fields');
+      showError('Please fill all fields');
+      return;
+    }
+
+    // Validate email format
+    const emailValidation = ValidationUtils.validateEmail(newUser.email);
+    if (!emailValidation.isValid) {
+      showError(emailValidation.error || 'Invalid email format');
+      return;
+    }
+    
+    // Validate name format
+    const nameValidation = ValidationUtils.validateName(newUser.name);
+    if (!nameValidation.isValid) {
+      showError(nameValidation.error || 'Invalid name format');
       return;
     }
 
@@ -174,7 +194,7 @@ export default function UserManagementPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || 'Failed to add user');
+        showError(data.error || 'Failed to add user');
         return;
       }
 
@@ -194,10 +214,10 @@ export default function UserManagementPage() {
       await refreshUsers();
       setShowAddUserModal(false);
       setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
-      alert(`User added successfully! Username: ${newUser.username}`);
+      showSuccess(`User added successfully! Username: ${newUser.username}`);
     } catch (error) {
       console.error('Error adding user:', error);
-      alert('An error occurred while adding the user');
+      showError('An error occurred while adding the user');
     }
   };
 
@@ -213,7 +233,7 @@ export default function UserManagementPage() {
       });
 
       if (!response.ok) {
-        alert('Failed to approve user');
+        showError('Failed to approve user');
         return;
       }
 
@@ -237,7 +257,7 @@ export default function UserManagementPage() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error approving user:', error);
-      alert('An error occurred while approving the user');
+      showError('An error occurred while approving the user');
     }
   };
 
@@ -252,7 +272,7 @@ export default function UserManagementPage() {
         });
 
         if (!response.ok) {
-          alert('Failed to reject user');
+          showError('Failed to reject user');
           return;
         }
 
@@ -272,10 +292,10 @@ export default function UserManagementPage() {
         }
         
         await refreshUsers();
-        alert('User rejected and removed from the system.');
+        showSuccess('User rejected and removed from the system.');
       } catch (error) {
         console.error('Error rejecting user:', error);
-        alert('An error occurred while rejecting the user');
+        showError('An error occurred while rejecting the user');
       }
     }
   };
@@ -300,7 +320,7 @@ export default function UserManagementPage() {
         });
 
         if (!response.ok) {
-          alert('Failed to delete user');
+          showError('Failed to delete user');
           return;
         }
 
@@ -311,7 +331,7 @@ export default function UserManagementPage() {
         setShowSuccessModal(true);
       } catch (error) {
         console.error('Error deleting user:', error);
-        alert('An error occurred while deleting the user');
+        showError('An error occurred while deleting the user');
       }
     }
   };
@@ -346,6 +366,16 @@ export default function UserManagementPage() {
 
       {/* Sidebar */}
   <SlidingSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} hideTrigger />
+
+      {/* Notification Banner */}
+      {notification && (
+        <div className="px-6 pt-4">
+          <NotificationBanner 
+            notification={notification} 
+            onDismiss={clearNotification}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="transition-all duration-300">

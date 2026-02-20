@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -55,6 +55,17 @@ export default function RegisterPage() {
   const [showCustomThana, setShowCustomThana] = useState(false);
   const [customThana, setCustomThana] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{type: 'error' | 'success' | 'info', message: string} | null>(null);
+  
+  // Auto-dismiss success and info notifications after 5 seconds
+  useEffect(() => {
+    if (notification && (notification.type === 'success' || notification.type === 'info')) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Get available thanas based on selected district
   const availableThanas = useMemo(() => {
@@ -217,19 +228,30 @@ export default function RegisterPage() {
     const value = e.target.value;
     setCustomThana(value);
     setFormData(prev => ({ ...prev, postedStation: value }));
+    
+    // Clear notification when user makes changes
+    if (notification) {
+      setNotification(null);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Clear previous notifications
+      setNotification(null);
+      
       if (file.size <= 5 * 1024 * 1024) { // 5MB limit
         setSelectedFile(file);
         
         // Create preview URL
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
+        
+        setNotification({type: 'success', message: `File "${file.name}" uploaded successfully!`});
       } else {
-        alert('File size must be less than 5MB');
+        setNotification({type: 'error', message: 'File size must be less than 5MB'});
       }
     }
   };
@@ -256,25 +278,28 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear any previous notifications
+    setNotification(null);
+    
     // Validate name
     if (!formData.fullName.trim()) {
       setErrors(prev => ({ ...prev, fullName: 'Full name is required' }));
-      alert('Please enter your full name');
+      setNotification({type: 'error', message: 'Please enter your full name'});
       return;
     }
     if (formData.fullName.trim().length < 3) {
       setErrors(prev => ({ ...prev, fullName: 'Name must be at least 3 characters' }));
-      alert('Name must be at least 3 characters');
+      setNotification({type: 'error', message: 'Name must be at least 3 characters'});
       return;
     }
     if (formData.fullName.trim().length > 50) {
       setErrors(prev => ({ ...prev, fullName: 'Name cannot exceed 50 characters' }));
-      alert('Name cannot exceed 50 characters');
+      setNotification({type: 'error', message: 'Name cannot exceed 50 characters'});
       return;
     }
     if (!/^[a-zA-Z\s.]+$/.test(formData.fullName)) {
       setErrors(prev => ({ ...prev, fullName: 'Name can only contain letters, spaces, and dots' }));
-      alert('Name can only contain letters, spaces, and dots (no numbers or special characters)');
+      setNotification({type: 'error', message: 'Name can only contain letters, spaces, and dots (no numbers or special characters)'});
       return;
     }
     
@@ -282,7 +307,7 @@ export default function RegisterPage() {
     const emailError = validateEmail(formData.email);
     if (emailError) {
       setErrors(prev => ({ ...prev, email: emailError }));
-      alert('Please fix the errors before submitting');
+      setNotification({type: 'error', message: 'Please fix the email validation errors'});
       return;
     }
     
@@ -290,17 +315,17 @@ export default function RegisterPage() {
     const phoneError = validatePhone(formData.phone);
     if (phoneError) {
       setErrors(prev => ({ ...prev, phone: phoneError }));
-      alert('Please fix the errors before submitting');
+      setNotification({type: 'error', message: 'Please fix the phone number validation errors'});
       return;
     }
     
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setNotification({type: 'error', message: 'Passwords do not match!'});
       return;
     }
 
     if (!selectedFile) {
-      alert('Please upload your service identity card');
+      setNotification({type: 'error', message: 'Please upload your service identity card'});
       return;
     }
 
@@ -347,9 +372,9 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         if (data.error.includes('Username or email already exists')) {
-          alert('Username or email already exists. Please choose different credentials.');
+          setNotification({type: 'error', message: 'Username or email already exists. Please choose different credentials.'});
         } else {
-          alert(data.error || 'Registration failed. Please try again.');
+          setNotification({type: 'error', message: data.error || 'Registration failed. Please try again.'});
         }
         setIsSubmitting(false);
         return;
@@ -370,10 +395,23 @@ export default function RegisterPage() {
       });
 
       setIsSubmitting(false);
-      router.push('/register/success');
+      setNotification({type: 'success', message: 'Registration successful! Redirecting to confirmation page...'});
+      
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        router.push('/register/success');
+      }, 1500);
     } catch (error) {
       console.error('Registration error:', error);
-      alert('An error occurred during registration. Please try again.');
+      
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        setNotification({type: 'error', message: 'Network error: Unable to connect to server. Please check your internet connection and try again.'});
+      } else if (error instanceof SyntaxError) {
+        setNotification({type: 'error', message: 'Server response error: Please try again.'});
+      } else {
+        setNotification({type: 'error', message: 'An unexpected error occurred during registration. Please try again.'});
+      }
+      
       setIsSubmitting(false);
     }
   };
@@ -409,6 +447,45 @@ export default function RegisterPage() {
 
       {/* Registration Form */}
       <div className="max-w-4xl mx-auto px-4 pb-12">
+        
+        {/* Notification Banner */}
+        {notification && (
+          <div className="mb-6">
+            <div className={`p-4 rounded-xl border-l-4 flex items-center justify-between ${
+              notification.type === 'error' 
+                ? 'bg-red-50 border-red-500 text-red-700' 
+                : notification.type === 'success'
+                ? 'bg-green-50 border-green-500 text-green-700'
+                : 'bg-blue-50 border-blue-500 text-blue-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                {notification.type === 'error' && (
+                  <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                    <X className="w-4 h-4 text-red-600" />
+                  </div>
+                )}
+                {notification.type === 'success' && (
+                  <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                    <span className="text-green-600 text-sm font-bold">✓</span>
+                  </div>
+                )}
+                {notification.type === 'info' && (
+                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-bold">i</span>
+                  </div>
+                )}
+                <p className="font-medium">{notification.message}</p>
+              </div>
+              <button
+                onClick={() => setNotification(null)}
+                className="p-1 hover:bg-black hover:bg-opacity-10 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-rose-200">
           <form onSubmit={handleSubmit} className="space-y-8">
             

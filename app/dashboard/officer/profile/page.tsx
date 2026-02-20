@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
+import NotificationBanner from '@/components/NotificationBanner';
+import { useNotification } from '@/lib/useNotification';
+import { ValidationUtils } from '@/lib/validation';
 
 export default function OfficerProfileEditPage() {
   const router = useRouter();
@@ -18,6 +21,7 @@ export default function OfficerProfileEditPage() {
   });
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const { notification, showError, showSuccess, clearNotification } = useNotification();
 
   // Load existing user data from localStorage and database
   useEffect(() => {
@@ -83,10 +87,10 @@ export default function OfficerProfileEditPage() {
           const url = URL.createObjectURL(file);
           setPreviewUrl(url);
         } else {
-          alert('Please upload an image file (JPG, PNG, etc.)');
+          showError('Please upload an image file (JPG, PNG, etc.)');
         }
       } else {
-        alert('Image size must be less than 5MB');
+        showError('Image size must be less than 5MB');
       }
     }
   };
@@ -147,11 +151,15 @@ export default function OfficerProfileEditPage() {
         localStorage.setItem('user', JSON.stringify(userData));
       }
       
-      alert('Profile updated successfully!');
-      router.push('/dashboard/officer');
+      showSuccess('Profile updated successfully!');
+      
+      // Delay navigation to show success message
+      setTimeout(() => {
+        router.push('/dashboard/officer');
+      }, 1500);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
+      showError(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
     }
   };
 
@@ -172,6 +180,16 @@ export default function OfficerProfileEditPage() {
           </div>
         </div>
       </header>
+
+      {/* Notification Banner */}
+      {notification && (
+        <div className="max-w-4xl mx-auto px-6 pt-4">
+          <NotificationBanner 
+            notification={notification} 
+            onDismiss={clearNotification}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
