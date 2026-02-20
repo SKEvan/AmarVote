@@ -38,7 +38,6 @@ export default function AdminProfileViewPage() {
       console.error('Error loading user data:', e);
     }
   }, []);
-  }, []);
   
   return (
     <div className="min-h-screen bg-gray-50">

@@ -53,7 +53,7 @@ export default function SystemLogsPage() {
       if (actionFilter !== 'ALL' && l.action !== actionFilter) return false;
       if (!query) return true;
       const q = query.toLowerCase();
-      return (l.timestamp || '').toLowerCase().includes(q) || (l.user || '').toLowerCase().includes(q) || (l.action || '').toLowerCase().includes(q) || (l.details || '').toLowerCase().includes(q) || (l.ip || '').toLowerCase().includes(q);
+      return (l.createdAt?.toString() || '').toLowerCase().includes(q) || (l.user || '').toLowerCase().includes(q) || (l.action || '').toLowerCase().includes(q) || (l.details || '').toLowerCase().includes(q) || (l.ip || '').toLowerCase().includes(q);
     });
   }, [query, actionFilter, logs]);
 
@@ -67,7 +67,7 @@ export default function SystemLogsPage() {
 
   function exportCsv() {
     const rows = [['timestamp','user','action','details','ip']];
-    filtered.forEach(r => rows.push([r.timestamp, r.user, r.action, r.details, r.ip]));
+    filtered.forEach(r => rows.push([r.createdAt?.toString() || '', r.user, r.action, r.details, r.ip]));
     const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -162,7 +162,7 @@ export default function SystemLogsPage() {
               <div key={log.id} className="p-4">
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-3">
-                    <div className="text-sm font-medium">{new Date(log.createdAt || log.timestamp).toLocaleString()}</div>
+                    <div className="text-sm font-medium">{new Date(log.createdAt).toLocaleString()}</div>
                   </div>
 
                   <div className="col-span-2 flex items-center gap-3">

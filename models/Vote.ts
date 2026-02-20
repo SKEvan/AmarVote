@@ -52,11 +52,20 @@ const VoteSchema = new Schema<IVote>(
       type: Number,
       required: true,
       min: 0,
+      validate: {
+        validator: function(value: number) {
+          // Validate total votes doesn't exceed total voters
+          // @ts-ignore - this refers to the document
+          return value <= this.totalVoters;
+        },
+        message: 'Total votes cannot exceed total registered voters'
+      }
     },
     totalVoters: {
       type: Number,
       required: true,
       min: 0,
+      max: 100000, // Reasonable max for a polling center
     },
     submittedBy: {
       userId: {
@@ -118,9 +127,20 @@ const VoteSchema = new Schema<IVote>(
   }
 );
 
-// Index for querying votes by polling center
+// Compound unique index to prevent duplicate vote submissions per polling center
+// Only one 'submitted' or 'verified' vote allowed per polling center
+VoteSchema.index(
+  { pollingCenter: 1, status: 1 }, 
+  { 
+    unique: true,
+    partialFilterExpression: { status: { $in: ['submitted', 'verified'] } }
+  }
+);
+
+// Other indexes for querying
 VoteSchema.index({ pollingCenter: 1, submittedAt: -1 });
 VoteSchema.index({ 'submittedBy.userId': 1 });
+VoteSchema.index({ status: 1, submittedAt: -1 });
 
 const Vote = models.Vote || model<IVote>('Vote', VoteSchema);
 

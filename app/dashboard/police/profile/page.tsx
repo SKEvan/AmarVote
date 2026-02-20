@@ -166,7 +166,7 @@ export default function ProfileEditPage() {
             <p className="text-red-100 text-sm">Update your personal information and profile picture</p>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">

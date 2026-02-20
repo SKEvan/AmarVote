@@ -101,8 +101,19 @@ export default function RegisterPage() {
       return 'Email must have username before @ symbol';
     }
     
-    if (!domain || domain.length < 3) {
-      return 'Please enter a valid email domain (e.g., gmail.com)';
+    if (!domain || domain.length < 5) {
+      return 'Please enter a valid email domain (e.g., gmail.com, yahoo.com)';
+    }
+
+    // Check domain part before extension (e.g., 'gmail' in 'gmail.com')
+    const domainParts = domain.split('.');
+    if (domainParts.length < 2) {
+      return 'Email domain must have an extension (e.g., .com, .bd)';
+    }
+    
+    const domainName = domainParts[0];
+    if (domainName.length < 2) {
+      return 'Email domain name is too short. Please use a valid domain (e.g., gmail.com)';
     }
     
     if (!/^[a-zA-Z0-9]/.test(username)) {
@@ -122,7 +133,6 @@ export default function RegisterPage() {
     }
     
     // Check domain extension length (at least 2 characters after last dot)
-    const domainParts = domain.split('.');
     const extension = domainParts[domainParts.length - 1];
     
     if (extension.length < 2) {
@@ -137,52 +147,31 @@ export default function RegisterPage() {
       return 'Phone number is required';
     }
     
-    const trimmedPhone = phone.trim();
+    const trimmedPhone = phone.trim().replace(/\s/g, ''); // Remove all spaces
     
-    // Bangladesh mobile operator prefixes (for local format with leading 0)
-    const validLocalPrefixes = ['013', '014', '015', '016', '017', '018', '019'];
-    // For international format after +880 (2 digits without the leading 0)
-    const validIntlPrefixes = ['13', '14', '15', '16', '17', '18', '19'];
-    
-    // Check if phone starts with +880 (Bangladesh country code)
-    if (trimmedPhone.startsWith('+880')) {
-      // For +880 format: +880 + 10 digits = 14 characters total
-      // Example: +8801712345678 or +880 1712345678
-      const allDigits = trimmedPhone.replace(/\D/g, ''); // Get all digits
-      
-      // Should have 880 + 10 more digits = 13 total digits
-      if (allDigits.length !== 13) {
-        return 'Phone number with +880 must be 14 characters total (e.g., +8801712345678)';
+    // Check for +8801 format (exactly 14 characters)
+    if (trimmedPhone.startsWith('+8801')) {
+      if (trimmedPhone.length !== 14) {
+        return 'Phone number with +8801 must be exactly 14 characters (e.g., +8801712345678)';
       }
-      
-      // Check that it starts with 880
-      if (!allDigits.startsWith('880')) {
-        return 'Invalid format. Must start with +880';
+      if (!/^\+8801[3-9]\d{8}$/.test(trimmedPhone)) {
+        return 'Invalid phone number format. Must be +8801 followed by valid operator code (3-9) and 8 more digits';
       }
-      
-      // Get the 10 digits after 880
-      const localNumber = allDigits.substring(3); // Remove 880, get remaining 10 digits
-      
-      // Check if the first 2 digits of the local number are valid operator codes
-      const operatorCode = localNumber.substring(0, 2);
-      if (!validIntlPrefixes.includes(operatorCode)) {
-        return 'Invalid operator code. Must be: 13, 14, 15, 16, 17, 18, or 19 after +880';
-      }
-    } else {
-      // Local format: must be 11 digits starting with 01X
-      const cleanPhone = trimmedPhone.replace(/\D/g, '');
-      
-      if (cleanPhone.length !== 11) {
-        return 'Phone number must be exactly 11 digits';
-      }
-      
-      const prefix = cleanPhone.substring(0, 3);
-      if (!validLocalPrefixes.includes(prefix)) {
-        return 'Phone number must start with valid operator code (013, 014, 015, 016, 017, 018, 019)';
-      }
+      return '';
     }
     
-    return '';
+    // Check for 01 format (exactly 11 digits)
+    if (trimmedPhone.startsWith('01')) {
+      if (trimmedPhone.length !== 11) {
+        return 'Phone number must be exactly 11 digits (e.g., 01712345678)';
+      }
+      if (!/^01[3-9]\d{8}$/.test(trimmedPhone)) {
+        return 'Invalid phone number. Must start with 01 followed by valid operator code (3-9) and 8 more digits';
+      }
+      return '';
+    }
+    
+    return 'Phone number must start with 01 (11 digits) or +8801 (14 characters)';
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -266,6 +255,28 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate name
+    if (!formData.fullName.trim()) {
+      setErrors(prev => ({ ...prev, fullName: 'Full name is required' }));
+      alert('Please enter your full name');
+      return;
+    }
+    if (formData.fullName.trim().length < 3) {
+      setErrors(prev => ({ ...prev, fullName: 'Name must be at least 3 characters' }));
+      alert('Name must be at least 3 characters');
+      return;
+    }
+    if (formData.fullName.trim().length > 50) {
+      setErrors(prev => ({ ...prev, fullName: 'Name cannot exceed 50 characters' }));
+      alert('Name cannot exceed 50 characters');
+      return;
+    }
+    if (!/^[a-zA-Z\s.]+$/.test(formData.fullName)) {
+      setErrors(prev => ({ ...prev, fullName: 'Name can only contain letters, spaces, and dots' }));
+      alert('Name can only contain letters, spaces, and dots (no numbers or special characters)');
+      return;
+    }
     
     // Validate email
     const emailError = validateEmail(formData.email);
@@ -416,7 +427,11 @@ export default function RegisterPage() {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
-                    placeholder="Enter your full name"
+                    placeholder="Enter your full name (letters, spaces, dots only)"
+                    minLength={3}
+                    maxLength={50}
+                    pattern="[a-zA-Z\s.]+"
+                    title="Name can only contain letters, spaces, and dots (3-50 characters)"
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     required
                   />
