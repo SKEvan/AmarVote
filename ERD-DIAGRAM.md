@@ -1,238 +1,285 @@
-# AmarVote Database ERD
+# AmarVote Database ERD & Schema Documentation
 
-## Entity Relationship Diagram
+## Entity Relationship Diagram (ERD)
 
-```mermaid
-erDiagram
-    User ||--o{ Incident : reports
-    User }o--|| PollingCenter : "assigned to"
-    User ||--o{ AuditLog : performs
-    
-    PollingCenter ||--o{ Incident : "has incidents at"
-    
-    PoliticalParty ||--o{ PollingCenter : "receives votes in"
+This document describes the complete database schema and entity relationships for the AmarVote election monitoring system.
 
-    User {
-        ObjectId _id PK
-        string username UK
-        string password
-        string name
-        string email UK
-        string phone
-        enum role "Admin, Officer, Police"
-        enum status "Active, Inactive, Pending"
-        string location
-        Date joinedDate
-        string lastActive
-        string serviceId
-        string rank
-        string avatar
-        string pollingCenterId FK
-        string pollingCenterName
-        string thana
-        string nidDocument
-        Date deletedAt
-        Date createdAt
-        Date updatedAt
-    }
+## Database Overview
 
-    Incident {
-        ObjectId _id PK
-        string title
-        string description
-        enum severity "Critical, High, Medium, Low"
-        enum status "Reported, Under Investigation, Resolved, Dismissed"
-        string location
-        string pollingCenterId FK
-        string pollingCenterName
-        string district
-        string thana
-        object reportedBy "userId, name, role"
-        Date reportedAt
-        string assignedTo
-        Date assignedAt
-        string resolvedBy
-        Date resolvedAt
-        string resolutionNotes
-        array attachments
-        object coordinates "lat, lng"
-        array notifyUsers "notification user IDs"
-        array notifyRoles "notification roles"
-        enum priority "low, medium, high"
-        boolean isRead
-        boolean actionRequired
-        Date expiresAt
-        Date createdAt
-        Date updatedAt
-    }
+AmarVote uses MongoDB as its primary database with the following main collections:
+- **Users** - User accounts (Admin, Officer, Police)
+- **Incidents** - Election incident reports
+- **Votes** - Vote count submissions
+- **PollingCenters** - Polling center information
+- **PoliticalParties** - Political party data
+- **AuditLogs** - System audit trail
 
-    AuditLog {
-        ObjectId _id PK
-        string user
-        string action
-        string details
-        string ip
-        Date createdAt
-        Date updatedAt
-    }
+## Entity Details
 
-    PollingCenter {
-        ObjectId _id PK
-        string pollingCenterId UK
-        string name
-        string district
-        string thana
-        string division
-        string address
-        object coordinates "lat, lng"
-        number totalRegisteredVoters
-        object assignedOfficer "userId, name, serviceId"
-        array facilities
-        enum status "Active, Inactive, Pending Setup"
-        boolean accessibility
-        Date pollingStartTime
-        Date pollingEndTime
-        object voteSubmission "submittedBy, voteCounts, totalVotes, status, verifiedBy, submittedAt"
-        array voteSubmissionHistory "history of all submissions for audit trail"
-        Date createdAt
-        Date updatedAt
-    }
+### 1. User Collection
 
-    PoliticalParty {
-        ObjectId _id PK
-        string partyId UK
-        string partyName UK
-        string partySymbol
-        string description
-        string color
-        enum status "Active, Inactive"
-        Date createdAt
-        Date updatedAt
-    }
+**Purpose**: Manages all user accounts in the system
+
+**Key Fields**:
+- `username` (unique identifier)
+- `password` (hashed)
+- `name`, `email` (required)
+- `phone`, `nid` (optional)
+- `role` (Admin | Officer | Police)
+- `status` (Active | Inactive | Pending)
+- `location`, `thana` (geographic assignment)
+- `pollingCenterId`, `pollingCenterName` (for Officers)
+- `serviceId`, `rank` (for Police)
+- `nidDocument` (base64 encoded document)
+
+**Relationships**:
+- One-to-Many with Incidents (reportedBy, assignedTo)
+- One-to-Many with Votes (submittedBy, verifiedBy)
+- One-to-One with PollingCenters (assignedOfficer)
+- One-to-Many with AuditLogs (user field)
+
+**Indexes**:
+- Primary: `_id`
+- Unique: `username`, `email`
+- Compound: `nid` (with duplicate warning)
+
+### 2. Incident Collection
+
+**Purpose**: Tracks election-related incidents and issues
+
+**Key Fields**:
+- `title`, `description` (incident details)
+- `severity` (Low | Medium | High | Critical)
+- `status` (Reported | Under Investigation | Resolved | Dismissed)
+- `location`, `thana`, `district` (geographic info)
+- `pollingCenterId`, `pollingCenterName` (related center)
+- `coordinates` (lat/lng for mapping)
+- `reportedBy` (embedded user info)
+- `assignedTo`, `assignedAt` (assignment tracking)
+- `acknowledgedBy`, `acknowledgedAt` (acknowledgement)
+- `resolvedBy`, `resolvedAt`, `resolutionNotes` (resolution)
+- `notifyUsers`, `notifyRoles` (notification system)
+- `priority`, `isRead`, `actionRequired` (notification flags)
+
+**Relationships**:
+- Many-to-One with Users (reportedBy.userId)
+- Many-to-One with Users (assignedTo)
+- Many-to-One with PollingCenters (pollingCenterId)
+
+**Indexes**:
+- Primary: `_id`
+- Single: `status`, `severity`, `pollingCenterId`
+- Compound: `reportedBy.userId`, `assignedTo`
+
+### 3. Vote Collection
+
+**Purpose**: Stores vote count submissions from polling centers
+
+**Key Fields**:
+- `pollingCenter`, `pollingCenterId`, `pollingCenterName`
+- `location` (geographic info)
+- `totalVotes`, `totalVoters` (vote counts)
+- `submittedBy` (embedded officer info)
+- `partyVotes` (simple key-value pairs)
+- `partyVoteBreakdown` (detailed array with party info)
+- `status` (submitted | verified | rejected)
+- `verifiedBy`, `verifiedAt` (verification tracking)
+
+**Relationships**:
+- Many-to-One with Users (submittedBy.userId)
+- Many-to-One with Users (verifiedBy.userId)
+- Many-to-One with PollingCenters (pollingCenterId)
+- References PoliticalParties (in partyVoteBreakdown)
+
+**Indexes**:
+- Primary: `_id`
+- Single: `pollingCenter`, `pollingCenterId`, `status`
+- Compound: `submittedBy.userId`
+
+### 4. PollingCenter Collection
+
+**Purpose**: Manages polling center information and vote submissions
+
+**Key Fields**:
+- `pollingCenterId` (unique identifier)
+- `name`, `address` (basic info)
+- `district`, `thana`, `division` (administrative divisions)
+- `coordinates` (lat/lng for mapping)
+- `totalRegisteredVoters` (capacity)
+- `assignedOfficer` (embedded officer info)
+- `status` (Active | Inactive | Pending Setup)
+- `facilities[]` (available amenities)
+- `accessibility` (boolean for disabled access)
+- `pollingStartTime`, `pollingEndTime` (operating hours)
+- `voteSubmission` (embedded submission data)
+- `voteSubmissionHistory[]` (audit trail)
+
+**Relationships**:
+- One-to-One with Users (assignedOfficer.userId)
+- One-to-Many with Votes (pollingCenterId)
+- One-to-Many with Incidents (pollingCenterId)
+
+**Indexes**:
+- Primary: `_id`
+- Unique: `pollingCenterId`
+- Single: `district`, `thana`, `status`
+- Geospatial: `coordinates` (2dsphere)
+
+### 5. PoliticalParty Collection
+
+**Purpose**: Stores political party information for elections
+
+**Key Fields**:
+- `partyId` (unique identifier)
+- `name`, `symbol` (party identification)
+- `symbolIcon` (visual representation)
+- `color` (brand color)
+- `leader` (party leader name)
+- `established` (founding date)
+- `description`, `manifesto` (party information)
+- `website`, `logo` (digital assets)
+- `registrationNumber` (official registration)
+- `status` (Active | Inactive | Suspended)
+- `totalSeats` (electoral performance)
+
+**Relationships**:
+- Referenced in Vote.partyVoteBreakdown
+- Referenced in PollingCenter.voteSubmission.voteCounts
+
+**Indexes**:
+- Primary: `_id`
+- Unique: `partyId`
+- Single: `name`, `status`
+
+### 6. AuditLog Collection
+
+**Purpose**: Maintains system audit trail for all user actions
+
+**Key Fields**:
+- `user` (username performing action)
+- `action` (type of action performed)
+- `details` (detailed description)
+- `ip` (IP address of user)
+- `createdAt`, `updatedAt` (timestamps)
+
+**Relationships**:
+- Many-to-One with Users (user field references username)
+
+**Indexes**:
+- Primary: `_id`
+- Single: `createdAt` (descending), `action`
+- Compound: `user + createdAt` (descending)
+
+## Data Flow Relationships
+
+### User Registration & Authentication Flow
+```
+User Registration → User Collection
+User Login → JWT Token Generation
+User Actions → AuditLog Collection
 ```
 
----
+### Incident Reporting Flow
+```
+User Reports Incident → Incident Collection
+Incident Assignment → User.assignedTo
+Incident Resolution → AuditLog Entry
+```
 
-## Relationships
+### Vote Submission Flow
+```
+Officer Submits Votes → Vote Collection
+Vote Verification → Vote.verifiedBy
+Polling Center Update → PollingCenter.voteSubmission
+Audit Trail → AuditLog Collection
+```
 
-| From | To | Type | Description |
-|------|-----|------|-------------|
-| User | Incident | One-to-Many | Officers/Police report incidents (with notification) |
-| User | AuditLog | One-to-Many | Users perform logged actions |
-| User | PollingCenter | Many-to-One | Officers assigned to polling centers |
-| PollingCenter | Incident | One-to-Many | Centers can have multiple incidents |
-| PoliticalParty | PollingCenter | One-to-Many | Parties receive votes (embedded in voteSubmission) |
+### Geographic Hierarchy
+```
+Division → District → Thana → Polling Center
+User Location Assignment
+Incident Location Tracking
+```
 
----
+## Database Constraints & Validations
 
-## Collections Overview (5 Total)
+### User Constraints
+- Username: Required, unique, lowercase, trimmed
+- Email: Required, unique, valid format, comprehensive validation
+- Password: Required, hashed with bcrypt
+- Role: Enum validation (Admin | Officer | Police)
+- Name: 3-50 characters, letters/spaces/dots only
+- Phone: Optional, format validation
+- NID: Optional, format validation
 
-### 🔐 1. Users
-**Purpose:** Manage all system users (Admin, Officer, Police)
+### Incident Constraints
+- Title: Required, trimmed
+- Severity: Enum (Low | Medium | High | Critical)
+- Status: Enum (Reported | Under Investigation | Resolved | Dismissed)
+- ReportedBy: Required embedded user info
 
-**Key Features:**
-- 3 roles: Admin, Officer, Police
-- 3 statuses: Active, Inactive, Pending
-- Unique: username, email
+### Vote Constraints
+- PollingCenter: Required, indexed
+- TotalVotes/TotalVoters: Required numbers
+- Status: Enum (submitted | verified | rejected)
+- SubmittedBy: Required embedded user info
+
+### PollingCenter Constraints
+- PollingCenterId: Required, unique
+- Name: Required, trimmed
+- Status: Enum (Active | Inactive | Pending Setup)
+- Coordinates: 2dsphere geospatial index
+
+## Security Features
+
+### Data Protection
 - Password hashing with bcrypt
-- Polling center assignment for Officers
+- JWT token-based authentication
+- Rate limiting on sensitive endpoints
+- Input validation and sanitization
+- Audit trail for all actions
 
-### ⚠️ 2. Incidents (includes Notifications)
-**Purpose:** Track election irregularities and send notifications
+### Access Control
+- Role-based permissions (Admin > Officer > Police)
+- Geographic restrictions (users assigned to specific areas)
+- Polling center officer assignments
+- Incident assignment and ownership
 
-**Key Features:**
-- 4 severity levels: Critical, High, Medium, Low
-- Status workflow: Reported → In Progress → Resolved
-- GPS coordinates for location
-- Assignment to users for resolution
-- **Notification fields:** notifyUsers, notifyRoles, priority, isRead, actionRequired
-- Attachment support for evidence
+### Data Integrity
+- Unique constraints on critical fields
+- Foreign key-like references via ObjectIds
+- Embedded documents for related data
+- Comprehensive validation schemas
 
-### 📍 3. PollingCenters (includes Vote Submissions)
-**Purpose:** Polling stations with embedded vote submission data
+## Performance Optimizations
 
-**Key Features:**
-- Unique polling center ID
-- Location: Division → District → Thana hierarchy
-- GPS coordinates
-- Registered voters count
-- Officer assignment tracking
-- Facilities array
-- **Embedded voteSubmission object:**
-  - submittedBy (userId, name, serviceId)
-  - voteCounts array (partyName, partySymbol, votes)
-  - totalVotes
-  - status: Submitted, Verified, Rejected, Correction Requested
-  - verifiedBy, verifiedAt
-  - rejectionReason, correctionNotes
+### Indexing Strategy
+- Primary indexes on all collections
+- Unique indexes on identifier fields
+- Compound indexes for common query patterns
+- Geospatial indexes for location-based queries
+- Time-based indexes for audit logs
 
-### 🎯 4. PoliticalParties
-**Purpose:** Master data for political parties
+### Query Optimization
+- Embedded documents reduce join operations
+- Strategic use of references vs. embedding
+- Indexes aligned with common access patterns
+- Pagination for large result sets
 
-**Key Features:**
-- 7 seeded parties (Party A-F + Independent)
-- Party symbols and colors
-- Active/Inactive status management
-- Used for vote counting
+## Backup & Recovery
 
-### 📝 5. AuditLogs
-**Purpose:** Immutable activity tracking
+### Data Persistence
+- MongoDB Atlas cloud hosting
+- Automatic backups and point-in-time recovery
+- Replica sets for high availability
+- Connection pooling and retry logic
 
-**Key Features:**
-- Tracks all system actions
-- User, action, timestamp, IP address
-- Cannot be modified (compliance)
-- Indexed for time-based queries
+### Data Migration
+- Seeding scripts for initial data
+- User creation utilities
+- Database schema validation
+- Version control for schema changes
 
 ---
 
-## Database Statistics
-
-```
-Collections: 5 (consolidated from 8)
-Users: 2 (1 Admin, 1 Officer)
-Polling Centers: 3 (with embedded vote submission capability)
-Political Parties: 7
-Incidents: Sample data with notification fields
-Audit Logs: System initialization log
-```
-
----
-
-## Data Consolidation
-
-**Merged Collections:**
-1. ✅ **Notifications → Incidents** (notifyUsers, notifyRoles, priority, isRead, actionRequired, expiresAt)
-2. ✅ **VoteSubmissions → PollingCenters** (voteSubmission object with all submission data)
-3. ✅ **SystemSettings** (removed - no longer needed)
-
-**Benefits:**
-- Simplified database structure
-- Fewer API endpoints to maintain
-- Reduced data duplication
-- Better performance (fewer joins)
-- All data stored in database (no hardcoded values)
-
----
-
-## Connection Info
-
-**Database:** MongoDB Atlas Cloud  
-**Cluster:** amarvote-db.sgvyt9r.mongodb.net  
-**Database Name:** amarvote  
-**Environment:** .env.local
-
----
-
-## Next Steps
-
-✅ Database consolidated to 5 collections  
-✅ All models updated with merged fields  
-✅ API routes streamlined  
-✅ Seed data updated  
-
-**Test the changes:**
-1. Run: `npm run seed` to reseed the database
-2. Login with: `admin` / `admin123`
-3. Test incident creation (now includes notification fields)
-4. Test vote submission (now embedded in polling centers)
+*This ERD documentation reflects the current database schema as of February 2026. The schema supports a complete election monitoring system with user management, incident tracking, vote collection, and comprehensive audit capabilities.*
