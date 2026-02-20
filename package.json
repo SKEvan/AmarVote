@@ -11,8 +11,10 @@
     "cleanup": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} scripts/cleanupSampleData.ts"
   },
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.294.0",
     "mongoose": "^9.1.5",
     "next": "^14.2.0",
