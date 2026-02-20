@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import PoliticalParty from '@/models/PoliticalParty';
+import { withAuth, withAdminAuth } from '@/lib/authMiddleware';
 
 // GET /api/political-parties - Get all political parties or filter by query
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -30,10 +31,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching political parties:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const GET = withAuth(getHandler);
 
 // POST /api/political-parties - Create a new political party
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -53,12 +56,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ party }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating political party:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: 'A political party with this ID already exists. Please use a unique party ID.' },
+        { status: 400 }
+      );
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to create political party' }, { status: 500 });
   }
-}
+};
+
+export const POST = withAdminAuth(postHandler);
 
 // PATCH /api/political-parties - Update political party
-export async function PATCH(request: NextRequest) {
+const patchHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -84,10 +104,12 @@ export async function PATCH(request: NextRequest) {
     console.error('Error updating political party:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const PATCH = withAdminAuth(patchHandler);
 
 // DELETE /api/political-parties - Delete political party
-export async function DELETE(request: NextRequest) {
+const deleteHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -109,4 +131,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting political party:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const DELETE = withAdminAuth(deleteHandler);

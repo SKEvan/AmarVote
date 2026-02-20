@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
+import { withAdminAuth } from '@/lib/authMiddleware';
 
 // GET /api/users - Get all users or filter by query
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -33,10 +34,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const GET = withAdminAuth(getHandler);
 
 // POST /api/users - Create a new user
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -73,12 +76,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ user: userResponse }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating user:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return NextResponse.json(
+        { error: `This ${field} is already registered. Please use a different ${field}.` },
+        { status: 400 }
+      );
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
-}
+};
+
+export const POST = withAdminAuth(postHandler);
 
 // PATCH /api/users - Update user
-export async function PATCH(request: NextRequest) {
+const patchHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -106,12 +127,30 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ user }, { status: 200 });
   } catch (error: any) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return NextResponse.json(
+        { error: `This ${field} is already registered. Please use a different ${field}.` },
+        { status: 400 }
+      );
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
-}
+};
+
+export const PATCH = withAdminAuth(patchHandler);
 
 // DELETE /api/users - Delete user
-export async function DELETE(request: NextRequest) {
+const deleteHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -133,4 +172,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting user:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const DELETE = withAdminAuth(deleteHandler);

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import AuditLog from '@/models/AuditLog';
+import { withAdminAuth } from '@/lib/authMiddleware';
 
 // GET /api/audit-logs - Get all audit logs or filter by query
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -45,10 +46,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching audit logs:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const GET = withAdminAuth(getHandler);
 
 // POST /api/audit-logs - Create a new audit log
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -74,4 +77,6 @@ export async function POST(request: NextRequest) {
     console.error('Error creating audit log:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const POST = withAdminAuth(postHandler);

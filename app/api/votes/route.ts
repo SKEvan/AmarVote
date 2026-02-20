@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Vote from '@/models/Vote';
 import PoliticalParty from '@/models/PoliticalParty';
+import PollingCenter from '@/models/PollingCenter';
+import { withAuth, withOfficerAuth } from '@/lib/authMiddleware';
 
 // GET /api/votes - Get all votes or votes by filter
-export async function GET(req: NextRequest) {
+const getHandler = async (req: NextRequest) => {
   try {
     await dbConnect();
 
@@ -38,10 +40,12 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+export const GET = withAuth(getHandler);
 
 // POST /api/votes - Submit new vote
-export async function POST(req: NextRequest) {
+const postHandler = async (req: NextRequest) => {
   try {
     await dbConnect();
 
@@ -77,6 +81,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Missing vote count information' },
         { status: 400 }
+      );
+    }
+
+    // Validate vote counts
+    if (totalVotes < 0 || totalVoters < 0) {
+      return NextResponse.json(
+        { success: false, error: 'Vote counts cannot be negative' },
+        { status: 400 }
+      );
+    }
+
+    if (totalVotes > totalVoters) {
+      return NextResponse.json(
+        { success: false, error: 'Total votes cannot exceed total registered voters' },
+        { status: 400 }
+      );
+    }
+
+    // Verify polling center exists (optional but recommended)
+    const pollingCenterExists = await PollingCenter.findOne({ pollingCenterId: pollingCenter });
+    if (!pollingCenterExists) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid polling center ID. Polling center not found in system.' },
+        { status: 404 }
+      );
+    }
+
+    // Verify submitter exists
+    const User = (await import('@/models/User')).default;
+    const submitter = await User.findById(submittedBy.userId);
+    if (!submitter) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid user. Submitter not found in system.' },
+        { status: 404 }
       );
     }
 
@@ -145,17 +183,41 @@ export async function POST(req: NextRequest) {
       message: 'Votes submitted successfully',
       vote: newVote,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error submitting votes:', error);
+    
+    // Handle MongoDB duplicate key error (from compound unique index)
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Votes have already been submitted and verified for this polling center. Duplicate submissions are not allowed.' 
+        },
+        { status: 409 }
+      );
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json(
+        { success: false, error: messages },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to submit votes' },
+      { success: false, error: 'Failed to submit votes. Please try again.' },
       { status: 500 }
     );
   }
-}
+};
+
+export const POST = withOfficerAuth(postHandler);
+
 
 // PATCH /api/votes - Update vote status (verify/reject)
-export async function PATCH(req: NextRequest) {
+const patchHandler = async (req: NextRequest) => {
   try {
     await dbConnect();
 
@@ -210,4 +272,6 @@ export async function PATCH(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+export const PATCH = withOfficerAuth(patchHandler);

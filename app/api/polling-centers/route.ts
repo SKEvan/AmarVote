@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import PollingCenter from '@/models/PollingCenter';
+import { withAuth, withAdminAuth } from '@/lib/authMiddleware';
 
 // GET /api/polling-centers - Get all polling centers or filter by query
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -34,10 +35,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching polling centers:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const GET = withAuth(getHandler);
 
 // POST /api/polling-centers - Create a new polling center
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -57,12 +60,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ center }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating polling center:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: 'A polling center with this ID already exists. Please use a unique polling center ID.' },
+        { status: 400 }
+      );
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to create polling center' }, { status: 500 });
   }
-}
+};
+
+export const POST = withAdminAuth(postHandler);
 
 // PATCH /api/polling-centers - Update polling center
-export async function PATCH(request: NextRequest) {
+const patchHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -86,12 +106,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ center }, { status: 200 });
   } catch (error: any) {
     console.error('Error updating polling center:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to update polling center' }, { status: 500 });
   }
-}
+};
+
+export const PATCH = withAdminAuth(patchHandler);
 
 // DELETE /api/polling-centers - Delete polling center
-export async function DELETE(request: NextRequest) {
+const deleteHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -113,4 +142,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting polling center:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const DELETE = withAdminAuth(deleteHandler);

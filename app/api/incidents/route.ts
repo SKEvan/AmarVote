@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Incident from '@/models/Incident';
+import { withAuth } from '@/lib/authMiddleware';
 
 // GET /api/incidents - Get all incidents or filter by query
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -34,10 +35,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching incidents:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const GET = withAuth(getHandler);
 
 // POST /api/incidents - Create a new incident
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -51,12 +54,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ incident }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating incident:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to create incident' }, { status: 500 });
   }
-}
+};
+
+export const POST = withAuth(postHandler);
 
 // PATCH /api/incidents - Update incident
-export async function PATCH(request: NextRequest) {
+const patchHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -94,12 +106,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ incident }, { status: 200 });
   } catch (error: any) {
     console.error('Error updating incident:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err: any) => err.message).join(', ');
+      return NextResponse.json({ error: messages }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to update incident' }, { status: 500 });
   }
-}
+};
+
+export const PATCH = withAuth(patchHandler);
 
 // DELETE /api/incidents - Delete incident
-export async function DELETE(request: NextRequest) {
+const deleteHandler = async (request: NextRequest) => {
   try {
     await dbConnect();
 
@@ -121,4 +142,6 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting incident:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+};
+
+export const DELETE = withAuth(deleteHandler);
