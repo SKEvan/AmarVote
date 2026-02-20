@@ -17,7 +17,7 @@ All backend connections are fully functional and working correctly. The comprehe
 
 ### MongoDB Atlas Connection
 - **Status:** ✅ CONNECTED
-- **URI:** `mongodb+srv://tanvir:amarvote@amarvote-db.sgvyt9r.mongodb.net/amarvote`
+- **URI:** Configured via environment variable
 - **Collections:** 6/6 found
 - **Connection Time:** < 2 seconds
 

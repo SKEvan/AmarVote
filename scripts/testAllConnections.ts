@@ -5,7 +5,13 @@
 
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://tanvir:amarvote@amarvote-db.sgvyt9r.mongodb.net/amarvote';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI environment variable is not set');
+  process.exit(1);
+}
+
 const API_BASE = 'http://localhost:3003/api';
 
 interface TestResult {
@@ -28,7 +34,7 @@ function log(result: TestResult) {
 
 async function testMongoDBConnection() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI as string);
     log({
       name: 'MongoDB Connection',
       status: 'PASS',

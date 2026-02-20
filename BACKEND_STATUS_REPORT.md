@@ -178,7 +178,8 @@ npm run dev
 
 ```env
 # .env.local
-MONGODB_URI=mongodb+srv://tanvir:amarvote@amarvote-db.sgvyt9r.mongodb.net/amarvote
+MONGODB_URI=<your-mongodb-atlas-connection-string>
+JWT_SECRET=<your-secure-jwt-secret-key>
 ```
 ✅ Configured and working
 
