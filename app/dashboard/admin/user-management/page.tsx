@@ -92,7 +92,12 @@ export default function UserManagementPage() {
   const refreshUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/users');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         // Map _id to id for compatibility
@@ -103,6 +108,9 @@ export default function UserManagementPage() {
           lastActive: user.lastActive || 'Never'
         }));
         setUsers(mappedUsers);
+      } else if (response.status === 401) {
+        alert('Session expired. Please login again.');
+        router.push('/login?role=admin');
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -156,9 +164,13 @@ export default function UserManagementPage() {
     }
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           username: newUser.username,
           password: newUser.password,
@@ -206,9 +218,13 @@ export default function UserManagementPage() {
     const user = users.find(u => u.id === userId);
     
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`/api/users`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId: userId, status: 'Active' }),
       });
 
@@ -247,8 +263,12 @@ export default function UserManagementPage() {
       const user = users.find(u => u.id === userId);
       
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch(`/api/users?userId=${userId}`, {
           method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
         if (!response.ok) {
@@ -295,8 +315,12 @@ export default function UserManagementPage() {
   const confirmDelete = async () => {
     if (userToDelete) {
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch(`/api/users?userId=${userToDelete}`, {
           method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
         if (!response.ok) {

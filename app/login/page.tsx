@@ -75,7 +75,7 @@ function LoginContent() {
       }
 
       // Login successful - complete login
-      completeLogin(result.user);
+      completeLogin(result.user, result.token);
     } catch (error) {
       console.error('Login error:', error);
       setError('An error occurred during login. Please try again.');
@@ -85,8 +85,11 @@ function LoginContent() {
 
 
 
-  const completeLogin = async (user: any) => {
+  const completeLogin = async (user: any, token: string) => {
     const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
+
+    // Store JWT token
+    localStorage.setItem('token', token);
 
     // Store current userId for profile lookup
     localStorage.setItem('currentUserId', user.id);
