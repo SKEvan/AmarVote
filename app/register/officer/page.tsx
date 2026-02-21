@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, X, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Upload, X, UserPlus, Eye, EyeOff, Download, FileText } from 'lucide-react';
 
 // Bangladesh Divisions and Districts
 const divisionDistrictMap: Record<string, string[]> = {
@@ -91,7 +91,6 @@ export default function OfficerRegisterPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -113,6 +112,18 @@ export default function OfficerRegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  useEffect(() => setMounted(true), []);
+  
+  // Cleanup preview URL on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   // Get districts based on selected division
   const availableDistricts = formData.division ? divisionDistrictMap[formData.division] || [] : [];
@@ -155,13 +166,32 @@ export default function OfficerRegisterPage() {
         return;
       }
       setSelectedFile(file);
+      
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     }
   };
 
   const removeFile = () => {
     setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadFile = () => {
+    if (selectedFile && previewUrl) {
+      const link = document.createElement('a');
+      link.href = previewUrl;
+      link.download = selectedFile.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -573,49 +603,105 @@ export default function OfficerRegisterPage() {
           {/* Document Upload */}
           <div>
             <h3 className="text-lg font-semibold text-blue-800 mb-4">Document Upload</h3>
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed ${errors.file ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-blue-50'} rounded-xl p-8 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-100 transition-colors`}
-            >
-              {selectedFile ? (
-                <div className="flex items-center justify-center gap-3">
-                  <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
-                    {selectedFile.name}
+            
+            {!selectedFile ? (
+              <div className="border-2 border-blue-200 rounded-2xl p-8 text-center bg-blue-50">
+                <div className="mb-4">
+                  <Upload className="w-12 h-12 text-blue-600 mx-auto mb-4" strokeWidth={2} />
+                  <p className="text-slate-800 font-semibold mb-2">
+                    Upload NID Copy <span className="text-red-500">*</span>
+                  </p>
+                  <p className="text-slate-600 text-sm mb-4">PDF, JPG, or PNG (Max 5MB)</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="nidFileUpload"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="nidFileUpload"
+                  className="inline-block bg-blue-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-blue-700 transition-colors duration-200 cursor-pointer"
+                >
+                  Choose File
+                </label>
+              </div>
+            ) : (
+              <div className="border-2 border-green-300 rounded-2xl p-6 bg-green-50">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                      <Eye className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-green-800 font-semibold">File Uploaded Successfully</p>
+                      <p className="text-gray-600 text-sm">{selectedFile.name}</p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFile();
-                    }}
-                    className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                    onClick={removeFile}
+                    className="text-red-700 hover:bg-red-100 p-2 rounded-lg transition-colors duration-200"
+                    title="Remove file"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              ) : (
-                <>
-                  <Upload className="w-10 h-10 text-blue-400 mx-auto mb-3" />
-                  <p className="text-slate-800 font-medium">
-                    Upload NID Copy <span className="text-red-500">*</span>
-                  </p>
-                  <p className="text-slate-600 text-sm mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                
+                {/* Preview Section */}
+                <div className="mt-4 border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                  <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                    <p className="text-sm font-medium text-gray-700">Document Preview</p>
+                  </div>
+                  <div className="p-4">
+                    {previewUrl && selectedFile.type.startsWith('image/') ? (
+                      <img 
+                        src={previewUrl} 
+                        alt="NID Document preview" 
+                        className="max-w-full h-auto max-h-96 mx-auto rounded-lg shadow-md"
+                      />
+                    ) : selectedFile.type === 'application/pdf' ? (
+                      <div className="text-center py-8">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <p className="text-slate-800 font-medium">PDF Document</p>
+                        <p className="text-slate-600 text-sm mt-1">{selectedFile.name}</p>
+                        <p className="text-slate-500 text-xs mt-2">Preview not available for PDF files</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
                   <button
                     type="button"
-                    className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    onClick={handleDownloadFile}
+                    className="inline-flex items-center justify-center bg-green-600 text-white font-semibold py-2 px-6 rounded-xl hover:bg-green-700 transition-colors duration-200"
                   >
-                    Choose File
+                    <Download className="w-4 h-4 mr-2" />
+                    Download File
                   </button>
-                </>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
+                  <input
+                    type="file"
+                    id="nidFileUploadReplace"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="nidFileUploadReplace"
+                    className="inline-flex items-center justify-center bg-white border-2 border-blue-600 text-blue-700 font-semibold py-2 px-6 rounded-xl hover:bg-blue-50 transition-colors duration-200 cursor-pointer"
+                  >
+                    Change File
+                  </label>
+                </div>
+              </div>
+            )}
+            
             {errors.file && <p className="text-red-500 text-xs mt-2">{errors.file}</p>}
           </div>
 
