@@ -302,6 +302,11 @@ export default function UserManagementPage() {
 
   // View user details
   const handleViewUser = (user: User) => {
+    console.log('Viewing user:', user);
+    console.log('User nidDocument:', user.nidDocument ? 'Present' : 'Missing');
+    if (user.nidDocument) {
+      console.log('Document type:', user.nidDocument.substring(0, 30));
+    }
     setSelectedUser(user);
     setShowUserDetailModal(true);
   };
@@ -887,12 +892,12 @@ export default function UserManagementPage() {
                 </div>
               )}
 
-              {/* NID Document - Always show for Officers */}
-              {selectedUser.role === 'Officer' && (
+              {/* Document - Show for Officers and Police */}
+              {(selectedUser.role === 'Officer' || selectedUser.role === 'Police') && (
                 <div>
                   <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-gray-500" />
-                    Attached NID Document
+                    {selectedUser.role === 'Officer' ? 'Attached NID Document' : 'Service Identity Card'}
                   </h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     {selectedUser.nidDocument ? (
@@ -901,12 +906,12 @@ export default function UserManagementPage() {
                           <div className="space-y-3">
                             <img 
                               src={selectedUser.nidDocument} 
-                              alt="NID Document" 
+                              alt={selectedUser.role === 'Officer' ? 'NID Document' : 'Service Identity Card'} 
                               className="w-full max-w-md mx-auto rounded-lg border-2 border-gray-200 shadow-sm"
                             />
                             <a
                               href={selectedUser.nidDocument}
-                              download={`NID_${selectedUser.name.replace(/\s+/g, '_')}.jpg`}
+                              download={`${selectedUser.role === 'Officer' ? 'NID' : 'ServiceCard'}_${selectedUser.name.replace(/\s+/g, '_')}.jpg`}
                               className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
                               <FileText className="w-4 h-4" />
@@ -924,7 +929,7 @@ export default function UserManagementPage() {
                             </div>
                             <a
                               href={selectedUser.nidDocument}
-                              download={`NID_${selectedUser.name.replace(/\s+/g, '_')}.pdf`}
+                              download={`${selectedUser.role === 'Officer' ? 'NID' : 'ServiceCard'}_${selectedUser.name.replace(/\s+/g, '_')}.pdf`}
                               className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
                               <FileText className="w-4 h-4" />
@@ -939,7 +944,9 @@ export default function UserManagementPage() {
                       <div className="flex items-center justify-center p-8 bg-white border-2 border-dashed border-gray-300 rounded-lg">
                         <div className="text-center">
                           <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">No NID document attached</p>
+                          <p className="text-sm text-gray-500">
+                            {selectedUser.role === 'Officer' ? 'No NID document attached' : 'No service identity card attached'}
+                          </p>
                         </div>
                       </div>
                     )}
