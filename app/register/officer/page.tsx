@@ -356,7 +356,7 @@ export default function OfficerRegisterPage() {
       {/* Header */}
       <div className="text-center py-8">
         <div className="flex items-center justify-center gap-3 mb-3">
-          <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
+          <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
           <div className="text-left">
             <p className="text-xl font-semibold text-slate-900">AmarVote</p>
             <p className="text-sm text-slate-600">Secure Election Monitoring</p>
