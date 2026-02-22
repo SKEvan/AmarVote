@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, MapPin, AlertTriangle, Clock, Menu, X } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import ChartTooltip from '@/components/shared/ChartTooltip';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 // Import Leaflet types
 declare global {
@@ -17,7 +18,7 @@ declare global {
 
 export default function IncidentMapPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   // search removed per request; only filtering remains
   const [userHover, setUserHover] = useState<{ x: number; y: number; content: string } | null>(null);
@@ -30,7 +31,7 @@ export default function IncidentMapPage() {
   useEffect(() => {
     const loadIncidents = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const parsedIncidents = (data.incidents || []).map((inc: any) => ({

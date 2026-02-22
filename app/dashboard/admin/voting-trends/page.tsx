@@ -6,6 +6,7 @@ import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import ChartTooltip from '@/components/shared/ChartTooltip';
 import { BarChart3, Menu, X } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 const PARTIES = [
   { id: 'PA', name: 'Party A', color: '#10b981' },
@@ -58,10 +59,15 @@ export default function VotingTrendsPage() {
   };
 
   useEffect(() => {
-    const loadVotes = () => {
+    const loadVotes = async () => {
       try {
-        const raw = localStorage.getItem('votesSubmissions');
-        setVoteSubmissions(raw ? JSON.parse(raw) : []);
+        const response = await fetchWithAuth('/api/votes');
+        if (response.ok) {
+          const data = await response.json();
+          setVoteSubmissions(data.votes || []);
+        } else {
+          setVoteSubmissions([]);
+        }
       } catch (e) {
         console.error('Error loading vote submissions', e);
         setVoteSubmissions([]);
@@ -69,14 +75,11 @@ export default function VotingTrendsPage() {
     };
 
     loadVotes();
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'votesSubmissions') loadVotes();
-    };
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('focus', loadVotes);
+    // Reload votes periodically for real-time updates
+    const interval = setInterval(loadVotes, 10000); // Every 10 seconds
+    
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('focus', loadVotes);
+      clearInterval(interval);
     };
   }, []);
 

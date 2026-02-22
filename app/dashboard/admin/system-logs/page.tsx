@@ -8,10 +8,11 @@ import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import ChartTooltip from '@/components/shared/ChartTooltip';
 import { getAuditLogs, AuditLog } from '@/lib/auditLog';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function SystemLogsPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [userHover, setUserHover] = useState<{ x: number; y: number; content: string } | null>(null);
@@ -21,7 +22,7 @@ export default function SystemLogsPage() {
   useEffect(() => {
     const loadLogs = async () => {
       try {
-        const response = await fetch('/api/audit-logs?limit=500');
+        const response = await fetchWithAuth('/api/audit-logs?limit=500');
         if (response.ok) {
           const data = await response.json();
           const mappedLogs = (data.logs || []).map((log: any) => ({
