@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import OfficerSlidingSidebar from '@/components/shared/OfficerSlidingSidebar';
+import CustomModal from '@/components/shared/CustomModal';
+import { useModal } from '@/hooks/useModal';
 import { addAuditLog, AuditActions } from '@/lib/auditLog';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 interface AttachedFile {
   id: string;
@@ -33,7 +36,8 @@ interface Incident {
 
 export default function OfficerDashboard() {
   const router = useRouter();
-  const [pollingCenterId, setPollingCenterId] = useState('PC-DHK-001');
+  const modal = useModal();
+  const [pollingCenterId, setPollingCenterId] = useState('');
   const [pollingCenterName, setPollingCenterName] = useState('');
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
   const [isInResubmissionWindow, setIsInResubmissionWindow] = useState(false);
@@ -57,10 +61,20 @@ export default function OfficerDashboard() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
+        // First, try to load from localStorage immediately for faster initial render
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.name) setUserName(user.name);
+          if (user.role) setUserRole(user.role);
+          if (user.pollingCenterId) setPollingCenterId(user.pollingCenterId);
+          if (user.pollingCenterName) setPollingCenterName(user.pollingCenterName);
+        }
+        
         const currentUserId = localStorage.getItem('currentUserId');
         
         if (currentUserId) {
-          // Load from database API
+          // Load from database API to get most up-to-date data
           const response = await fetch(`/api/users?userId=${currentUserId}`);
           
           if (response.ok) {
@@ -79,7 +93,7 @@ export default function OfficerDashboard() {
               }
               
               // Update localStorage with latest data
-              const userData = {
+              const updatedUserData = {
                 name: userFromDb.name,
                 role: 'Presiding Officer',
                 avatar: userFromDb.avatar || '',
@@ -89,18 +103,8 @@ export default function OfficerDashboard() {
                 pollingCenterId: userFromDb.pollingCenterId || '',
                 pollingCenterName: userFromDb.pollingCenterName || ''
               };
-              localStorage.setItem('user', JSON.stringify(userData));
+              localStorage.setItem('user', JSON.stringify(updatedUserData));
             }
-          }
-        } else {
-          // Fallback to localStorage only
-          const userData = localStorage.getItem('user');
-          if (userData) {
-            const user = JSON.parse(userData);
-            if (user.name) setUserName(user.name);
-            if (user.role) setUserRole(user.role);
-            if (user.pollingCenterId) setPollingCenterId(user.pollingCenterId);
-            if (user.pollingCenterName) setPollingCenterName(user.pollingCenterName);
           }
         }
       } catch (e) {
@@ -150,7 +154,7 @@ export default function OfficerDashboard() {
 
   // Check if admin has reset/re-enabled voting (to allow correction)
   useEffect(() => {
-    const checkForReset = () => {
+    const checkForReset = async () => {
       const centerResetKey = `voteSubmissionReset_${pollingCenterId || ''}`;
       const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
       const resetFlag = localStorage.getItem(centerResetKey) || localStorage.getItem('voteSubmissionReset');
@@ -163,13 +167,36 @@ export default function OfficerDashboard() {
         setIsInResubmissionWindow(true);
         
         try {
-          // Remove this center's submission from the multi-center list
+          // Fetch the previously submitted vote data from the API to pre-fill the form
+          const response = await fetchWithAuth(`/api/votes?pollingCenterId=${pollingCenterId}`);
+          if (response.ok) {
+            const data = await response.json();
+            const existingVote = data.votes?.find((v: any) => v.pollingCenter === pollingCenterId);
+            
+            if (existingVote && existingVote.partyVotes) {
+              // Pre-fill the form with previously submitted values
+              setVoteCounts({
+                PA: existingVote.partyVotes.PA || 0,
+                PB: existingVote.partyVotes.PB || 0,
+                PC: existingVote.partyVotes.PC || 0,
+                PD: existingVote.partyVotes.PD || 0,
+                PE: existingVote.partyVotes.PE || 0,
+                PF: existingVote.partyVotes.PF || 0,
+                IND: existingVote.partyVotes.IND || 0,
+              });
+              setTotalVoters(existingVote.totalVoters || 0);
+            }
+          }
+          
+          // Remove this center's submission from the multi-center list in localStorage
           const raw = localStorage.getItem('votesSubmissions');
           const existing: any[] = raw ? JSON.parse(raw) : [];
           const filtered = existing.filter((entry) => entry.pollingCenter !== pollingCenterId);
           localStorage.setItem('votesSubmissions', JSON.stringify(filtered));
         } catch (e) {
-          console.error('Error clearing vote submission for reset', e);
+          console.error('Error loading previous vote data for correction', e);
+          // If fetch fails, reset to 0
+          setVoteCounts({ PA: 0, PB: 0, PC: 0, PD: 0, PE: 0, PF: 0, IND: 0 });
         }
 
         localStorage.removeItem('votesSubmitted');
@@ -188,11 +215,35 @@ export default function OfficerDashboard() {
 
         setShowVoteSubmittedView(false);
         setSubmittedVoteData(null);
-        // Reset vote counts ONLY on initial reset
-        setVoteCounts({ PA: 0, PB: 0, PC: 0, PD: 0, PE: 0, PF: 0, IND: 0 });
       } else if (resubmitWindow === 'true') {
         // Just maintain the resubmission window state without resetting anything
         setIsInResubmissionWindow(true);
+        
+        // Also pre-fill data when re-entering the resubmission window
+        if (!hasProcessedResetRef.current) {
+          try {
+            const response = await fetchWithAuth(`/api/votes?pollingCenterId=${pollingCenterId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const existingVote = data.votes?.find((v: any) => v.pollingCenter === pollingCenterId);
+              
+              if (existingVote && existingVote.partyVotes) {
+                setVoteCounts({
+                  PA: existingVote.partyVotes.PA || 0,
+                  PB: existingVote.partyVotes.PB || 0,
+                  PC: existingVote.partyVotes.PC || 0,
+                  PD: existingVote.partyVotes.PD || 0,
+                  PE: existingVote.partyVotes.PE || 0,
+                  PF: existingVote.partyVotes.PF || 0,
+                  IND: existingVote.partyVotes.IND || 0,
+                });
+                setTotalVoters(existingVote.totalVoters || 0);
+              }
+            }
+          } catch (e) {
+            console.error('Error loading vote data', e);
+          }
+        }
       } else {
         // No active resubmission window
         setIsInResubmissionWindow(false);
@@ -221,25 +272,42 @@ export default function OfficerDashboard() {
 
   const handleRequestCorrection = () => {
     if (correctionUsed) {
-      alert('You have already used your one-time correction for this polling center.');
+      modal.showAlert(
+        'You have already used your one-time correction for this polling center.',
+        'warning',
+        'Correction Already Used'
+      );
       return;
     }
 
-    if (confirm('Are you sure you want to request a correction? Admin will review your request.')) {
-      const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
-      const meta = {
-        officerName: userName,
-        pollingCenterId,
-        pollingCenterName,
-        requestedAt: new Date().toISOString(),
-      };
+    modal.showConfirm(
+      'Are you sure you want to request a correction? Admin will review your request.',
+      () => {
+        const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
+        const meta = {
+          officerName: userName,
+          pollingCenterId,
+          pollingCenterName,
+          requestedAt: new Date().toISOString(),
+        };
 
-      localStorage.setItem('correctionRequested', 'true');
-      localStorage.setItem(correctionKey, 'true');
-      localStorage.setItem('correctionRequestMeta', JSON.stringify(meta));
-      setCorrectionRequested(true);
-      alert('Correction request submitted. Please wait for admin approval.');
-    }
+        localStorage.setItem('correctionRequested', 'true');
+        localStorage.setItem(correctionKey, 'true');
+        localStorage.setItem('correctionRequestMeta', JSON.stringify(meta));
+        setCorrectionRequested(true);
+        modal.showAlert(
+          'Correction request submitted. Please wait for admin approval.',
+          'success',
+          'Request Submitted'
+        );
+      },
+      {
+        variant: 'warning',
+        title: 'Request Correction',
+        confirmText: 'Submit Request',
+        cancelText: 'Cancel'
+      }
+    );
   };
 
   // Incident Report State
@@ -280,13 +348,21 @@ export default function OfficerDashboard() {
       // Check file type (images and PDFs only)
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        alert(`File "${file.name}" is not supported. Only images and PDFs are allowed.`);
+        modal.showAlert(
+          `File "${file.name}" is not supported. Only images and PDFs are allowed.`,
+          'error',
+          'Invalid File Type'
+        );
         return;
       }
 
       // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        modal.showAlert(
+          `File "${file.name}" is too large. Maximum size is 10MB.`,
+          'error',
+          'File Too Large'
+        );
         return;
       }
 
@@ -365,11 +441,19 @@ export default function OfficerDashboard() {
   const handleIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!incidentTitle.trim()) {
-      alert('Please provide an incident title.');
+      modal.showAlert(
+        'Please provide an incident title.',
+        'warning',
+        'Missing Information'
+      );
       return;
     }
     if (!incidentDescription.trim()) {
-      alert('Please provide a description of the incident.');
+      modal.showAlert(
+        'Please provide a description of the incident.',
+        'warning',
+        'Missing Information'
+      );
       return;
     }
 
@@ -406,11 +490,8 @@ export default function OfficerDashboard() {
       };
 
       // Submit to backend API
-      const response = await fetch('/api/incidents', {
+      const response = await fetchWithAuth('/api/incidents', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(incidentData),
       });
 
@@ -471,7 +552,11 @@ export default function OfficerDashboard() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error submitting incident:', error);
-      alert(error instanceof Error ? error.message : 'Failed to submit incident report. Please try again.');
+      modal.showAlert(
+        error instanceof Error ? error.message : 'Failed to submit incident report. Please try again.',
+        'error',
+        'Submission Failed'
+      );
       setIsSubmitting(false);
     }
   };
@@ -505,16 +590,18 @@ export default function OfficerDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (confirm('Are you sure? Vote counts can only be submitted ONCE and cannot be modified.')) {
-      setIsSubmitting(true);
-      
-      try {
-        const currentUserId = localStorage.getItem('currentUserId');
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    modal.showConfirm(
+      'Are you sure? Vote counts can only be submitted ONCE and cannot be modified.',
+      async () => {
+        setIsSubmitting(true);
         
-        // Check if this is a correction resubmission
-        const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
-        const isInCorrectionWindow = localStorage.getItem(resubmitWindowKey) === 'true';
+        try {
+          const currentUserId = localStorage.getItem('currentUserId');
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          
+          // Check if this is a correction resubmission
+          const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
+          const isInCorrectionWindow = localStorage.getItem(resubmitWindowKey) === 'true';
         
         const voteData = {
           pollingCenter: pollingCenterId,
@@ -532,11 +619,8 @@ export default function OfficerDashboard() {
         };
 
         // Submit to backend API
-        const response = await fetch('/api/votes', {
+        const response = await fetchWithAuth('/api/votes', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(voteData),
         });
 
@@ -596,10 +680,21 @@ export default function OfficerDashboard() {
         setTotalVoters(0);
       } catch (error) {
         console.error('Error submitting votes:', error);
-        alert(error instanceof Error ? error.message : 'Failed to submit votes. Please try again.');
+        modal.showAlert(
+          error instanceof Error ? error.message : 'Failed to submit votes. Please try again.',
+          'error',
+          'Submission Failed'
+        );
         setIsSubmitting(false);
       }
-    }
+      },
+      {
+        variant: 'warning',
+        title: 'Confirm Vote Submission',
+        confirmText: 'Submit Votes',
+        cancelText: 'Cancel'
+      }
+    );
   };
 
   const handleLogout = () => {
@@ -623,7 +718,7 @@ export default function OfficerDashboard() {
                 submittedIncidentsCount={submittedIncidents.length}
               />
               <div className="flex items-center gap-3 text-white">
-                <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
+                <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
                 <h1 className="text-xl font-semibold">Vote Submission Confirmed - AmarVote</h1>
               </div>
             </div>
@@ -987,6 +1082,19 @@ export default function OfficerDashboard() {
             </div>
           </div>
         )}
+
+        {/* Custom Modal */}
+        <CustomModal
+          isOpen={modal.isOpen}
+          onClose={modal.handleClose}
+          title={modal.config.title}
+          message={modal.config.message}
+          type={modal.type}
+          onConfirm={modal.handleConfirm}
+          variant={modal.config.variant}
+          confirmText={modal.config.confirmText}
+          cancelText={modal.config.cancelText}
+        />
       </div>
     );
   }
@@ -1008,7 +1116,7 @@ export default function OfficerDashboard() {
               submittedIncidentsCount={submittedIncidents.length}
             />
             <div className="flex items-center gap-3 text-white">
-              <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
+              <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
               <h1 className="text-xl font-semibold">Presiding Officer Dashboard - AmarVote</h1>
             </div>
           </div>
@@ -1707,6 +1815,19 @@ export default function OfficerDashboard() {
           </div>
         </div>
       )}
+
+      {/* Custom Modal */}
+      <CustomModal
+        isOpen={modal.isOpen}
+        onClose={modal.handleClose}
+        title={modal.config.title}
+        message={modal.config.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        variant={modal.config.variant}
+        confirmText={modal.config.confirmText}
+        cancelText={modal.config.cancelText}
+      />
     </div>
   );
 }
