@@ -105,6 +105,30 @@ export async function POST(request: NextRequest) {
       ...otherFields,
     });
 
+    // If Officer role and has polling center info, create polling center
+    if (role === 'Officer' && otherFields.pollingCenterId && otherFields.pollingCenterName) {
+      const PollingCenter = (await import('@/models/PollingCenter')).default;
+      
+      // Check if polling center already exists
+      const existingCenter = await PollingCenter.findOne({ 
+        pollingCenterId: otherFields.pollingCenterId 
+      });
+      
+      if (!existingCenter) {
+        // Create new polling center
+        await PollingCenter.create({
+          pollingCenterId: otherFields.pollingCenterId,
+          name: otherFields.pollingCenterName,
+          location: otherFields.pollingCenterName,
+          division: otherFields.division || 'Unknown',
+          district: otherFields.district || 'Unknown',
+          thana: otherFields.thana || 'Unknown',
+          totalVoters: 0,
+          status: 'active',
+        });
+      }
+    }
+
     // Return user without password
     const userResponse = {
       id: user._id.toString(),
