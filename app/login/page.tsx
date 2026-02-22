@@ -9,7 +9,7 @@ import { User, Lock, ArrowLeft, Users, AlertTriangle, Shield, Eye, EyeOff } from
 
 const BrandMark = () => (
   <div className="flex items-center justify-center gap-3 mb-6">
-    <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={56} height={56} className="rounded-xl shadow-sm" />
+    <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={56} height={56} className="rounded-xl shadow-sm" />
     <div className="text-left">
       <p className="text-lg font-semibold text-gray-900">AmarVote</p>
       <p className="text-xs text-gray-500">Secure Election Monitoring</p>
@@ -95,14 +95,17 @@ function LoginContent() {
     // Store current userId for profile lookup
     localStorage.setItem('currentUserId', user.id);
 
-    // Store user display info
+    // Store user display info with polling center data for officers
     localStorage.setItem('user', JSON.stringify({
       name: user.name,
       role: displayRole,
       avatar: user.avatar || '',
       userId: user.id,
       phone: user.phone || '',
-      email: user.email
+      email: user.email,
+      pollingCenterId: user.pollingCenterId || '',
+      pollingCenterName: user.pollingCenterName || '',
+      location: user.location || ''
     }));
 
     // Store current user for audit logging

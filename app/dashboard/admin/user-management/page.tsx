@@ -6,6 +6,9 @@ import ShieldIcon from '@/components/shared/ShieldIcon';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
+import CustomModal from '@/components/shared/CustomModal';
+import { useModal } from '@/hooks/useModal';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { 
   LogOut, 
   FileText, 
@@ -55,7 +58,8 @@ interface User {
 
 export default function UserManagementPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const modal = useModal();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -80,9 +84,18 @@ export default function UserManagementPage() {
   });
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      router.push('/');
-    }
+    modal.showConfirm(
+      'Are you sure you want to logout?',
+      () => {
+        router.push('/');
+      },
+      {
+        variant: 'warning',
+        title: 'Confirm Logout',
+        confirmText: 'Logout',
+        cancelText: 'Cancel'
+      }
+    );
   };
 
   // Load users from shared store
@@ -92,12 +105,7 @@ export default function UserManagementPage() {
   const refreshUsers = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetchWithAuth('/api/users');
       if (response.ok) {
         const data = await response.json();
         // Map _id to id for compatibility
@@ -109,7 +117,11 @@ export default function UserManagementPage() {
         }));
         setUsers(mappedUsers);
       } else if (response.status === 401) {
-        alert('Session expired. Please login again.');
+        modal.showAlert(
+          'Session expired. Please login again.',
+          'warning',
+          'Session Expired'
+        );
         router.push('/login?role=admin');
       }
     } catch (error) {
@@ -159,18 +171,17 @@ export default function UserManagementPage() {
   // Add new user
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.location || !newUser.password || !newUser.username) {
-      alert('Please fill all fields');
+      modal.showAlert(
+        'Please fill all fields',
+        'warning',
+        'Missing Information'
+      );
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/users', {
+      const response = await fetchWithAuth('/api/users', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           username: newUser.username,
           password: newUser.password,
@@ -186,15 +197,18 @@ export default function UserManagementPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || 'Failed to add user');
+        modal.showAlert(
+          data.error || 'Failed to add user',
+          'error',
+          'Add User Failed'
+        );
         return;
       }
 
       // Log user creation
       const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
-      await fetch('/api/audit-logs', {
+      await fetchWithAuth('/api/audit-logs', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user: adminInfo.name || 'Admin',
           action: 'USER_CREATED',
@@ -206,10 +220,18 @@ export default function UserManagementPage() {
       await refreshUsers();
       setShowAddUserModal(false);
       setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
-      alert(`User added successfully! Username: ${newUser.username}`);
+      modal.showAlert(
+        `User added successfully! Username: ${newUser.username}`,
+        'success',
+        'User Added'
+      );
     } catch (error) {
       console.error('Error adding user:', error);
-      alert('An error occurred while adding the user');
+      modal.showAlert(
+        'An error occurred while adding the user',
+        'error',
+        'Error'
+      );
     }
   };
 
@@ -229,16 +251,19 @@ export default function UserManagementPage() {
       });
 
       if (!response.ok) {
-        alert('Failed to approve user');
+        modal.showAlert(
+          'Failed to approve user',
+          'error',
+          'Approval Failed'
+        );
         return;
       }
 
       // Log user approval
       if (user) {
         const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
-        await fetch('/api/audit-logs', {
+        await fetchWithAuth('/api/audit-logs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user: adminInfo.name || 'Admin',
             action: 'USER_APPROVED',
@@ -253,35 +278,44 @@ export default function UserManagementPage() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error('Error approving user:', error);
-      alert('An error occurred while approving the user');
+      modal.showAlert(
+        'An error occurred while approving the user',
+        'error',
+        'Error'
+      );
     }
   };
 
   // Reject user
   const handleRejectUser = async (userId: string) => {
-    if (confirm('Are you sure you want to reject this user? This will delete their account.')) {
-      const user = users.find(u => u.id === userId);
-      
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/users?userId=${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
+    modal.showConfirm(
+      'Are you sure you want to reject this user? This will delete their account.',
+      async () => {
+        const user = users.find(u => u.id === userId);
+        
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`/api/users?userId=${userId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
           }
         });
 
         if (!response.ok) {
-          alert('Failed to reject user');
+          modal.showAlert(
+            'Failed to reject user',
+            'error',
+            'Rejection Failed'
+          );
           return;
         }
 
         // Log user rejection
         if (user) {
           const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
-          await fetch('/api/audit-logs', {
+          await fetchWithAuth('/api/audit-logs', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               user: adminInfo.name || 'Admin',
               action: 'USER_REJECTED',
@@ -292,12 +326,27 @@ export default function UserManagementPage() {
         }
         
         await refreshUsers();
-        alert('User rejected and removed from the system.');
+        modal.showAlert(
+          'User rejected and removed from the system.',
+          'success',
+          'User Rejected'
+        );
       } catch (error) {
         console.error('Error rejecting user:', error);
-        alert('An error occurred while rejecting the user');
+        modal.showAlert(
+          'An error occurred while rejecting the user',
+          'error',
+          'Error'
+        );
       }
-    }
+      },
+      {
+        variant: 'warning',
+        title: 'Reject User',
+        confirmText: 'Reject',
+        cancelText: 'Cancel'
+      }
+    );
   };
 
   // View user details
@@ -329,7 +378,11 @@ export default function UserManagementPage() {
         });
 
         if (!response.ok) {
-          alert('Failed to delete user');
+          modal.showAlert(
+            'Failed to delete user',
+            'error',
+            'Delete Failed'
+          );
           return;
         }
 
@@ -340,7 +393,11 @@ export default function UserManagementPage() {
         setShowSuccessModal(true);
       } catch (error) {
         console.error('Error deleting user:', error);
-        alert('An error occurred while deleting the user');
+        modal.showAlert(
+          'An error occurred while deleting the user',
+          'error',
+          'Error'
+        );
       }
     }
   };
@@ -1094,6 +1151,19 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Custom Modal */}
+      <CustomModal
+        isOpen={modal.isOpen}
+        onClose={modal.handleClose}
+        title={modal.config.title}
+        message={modal.config.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        variant={modal.config.variant}
+        confirmText={modal.config.confirmText}
+        cancelText={modal.config.cancelText}
+      />
     </div>
   );
 }

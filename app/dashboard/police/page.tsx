@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog, X, Menu, Home } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function PoliceDashboard() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function PoliceDashboard() {
   useEffect(() => {
     const loadIncidents = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const incidents = (data.incidents || []).map((inc: any) => ({
@@ -92,7 +93,7 @@ export default function PoliceDashboard() {
 
       if (response.ok) {
         // Refresh incidents from database
-        const fetchResponse = await fetch('/api/incidents');
+        const fetchResponse = await fetchWithAuth('/api/incidents');
         if (fetchResponse.ok) {
           const data = await fetchResponse.json();
           const incidents = (data.incidents || []).map((inc: any) => ({

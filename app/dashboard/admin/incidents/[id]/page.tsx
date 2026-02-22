@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, MapPin, Clock, User, Image as ImageIcon } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 // Import Leaflet types
 declare global {
@@ -147,9 +148,8 @@ export default function IncidentDetailsPage() {
 
   const handleStatusUpdate = async (newStatus: string) => {
     try {
-      const response = await fetch('/api/incidents', {
+      const response = await fetchWithAuth('/api/incidents', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           incidentId: incidentId,
           status: newStatus,
@@ -161,9 +161,8 @@ export default function IncidentDetailsPage() {
         
         // Log the status update
         const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-        await fetch('/api/audit-logs', {
+        await fetchWithAuth('/api/audit-logs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user: userInfo.name || 'Admin',
             action: 'INCIDENT_STATUS_UPDATED',

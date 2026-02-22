@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Menu, X, Map, TrendingUp, FileCheck, Home, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -19,8 +19,25 @@ export default function SlidingSidebar({ open: controlledOpen, onOpenChange, hid
     if (onOpenChange) onOpenChange(val);
     else setUncontrolledOpen(val);
   };
-  // Sidebar only handles navigation; notifications are shown in header via NotificationBell
   const router = useRouter();
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Close sidebar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (open && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
 
   return (
     <div>
@@ -32,8 +49,17 @@ export default function SlidingSidebar({ open: controlledOpen, onOpenChange, hid
         </div>
       )}
 
-      <div className={`fixed ${topOffsetClass ? `${topOffsetClass} bottom-0` : 'inset-y-0'} left-0 transform ${open ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300`} style={{ zIndex: 9999 }}>
-        <div className="w-64 bg-white h-full border-r border-gray-200 shadow-lg relative z-50">
+      {/* Backdrop overlay */}
+      {open && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 transition-opacity duration-300"
+          style={{ zIndex: 9998 }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <div className={`fixed ${topOffsetClass ? `${topOffsetClass} bottom-0` : 'inset-y-0'} left-0 w-64 transform ${open ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`} style={{ zIndex: 9999 }}>
+        <div ref={sidebarRef} className="w-full bg-white h-full border-r border-gray-200 shadow-lg relative z-50">
           <div className="p-4 flex items-center justify-between border-b border-gray-100">
             <div className="flex items-center gap-3">
               <Home className="w-5 h-5 text-green-600" />

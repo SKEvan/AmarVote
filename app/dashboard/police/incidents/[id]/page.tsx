@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import { ArrowLeft, AlertTriangle, MapPin, Clock, User, X, Image as ImageIcon } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function PoliceIncidentDetailsPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function PoliceIncidentDetailsPage() {
   useEffect(() => {
     const loadIncident = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const found = (data.incidents || []).find((inc: any) => inc._id === incidentId);
@@ -34,9 +35,8 @@ export default function PoliceIncidentDetailsPage() {
             setHasAcknowledged(found.status === 'Under Investigation' || found.status === 'Resolved');
             
             // Log incident view
-            await fetch('/api/audit-logs', {
+            await fetchWithAuth('/api/audit-logs', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 user: 'Law Enforcement',
                 action: 'INCIDENT_VIEWED',
@@ -112,9 +112,8 @@ export default function PoliceIncidentDetailsPage() {
         setShowAcknowledgeModal(false);
 
         // Log incident acknowledgement
-        await fetch('/api/audit-logs', {
+        await fetchWithAuth('/api/audit-logs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user: 'Law Enforcement',
             action: 'INCIDENT_ACKNOWLEDGED',

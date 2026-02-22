@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import { AlertTriangle, Clock, CheckCircle, MapPin, ArrowLeft, X, Menu, Home } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function PoliceIncidentsPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function PoliceIncidentsPage() {
   useEffect(() => {
     const loadIncidents = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const officerIncidents = (data.incidents || []).map((inc: any) => ({

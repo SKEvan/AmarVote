@@ -396,7 +396,7 @@ export default function RegisterPage() {
       {/* Header Section */}
       <div className="pt-16 pb-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
+          <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={64} height={64} className="rounded-2xl shadow-md" />
           <div className="text-left">
             <p className="text-xl font-semibold text-rose-900">AmarVote</p>
             <p className="text-sm text-rose-600">Secure Election Monitoring</p>
