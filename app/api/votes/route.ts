@@ -99,13 +99,31 @@ const postHandler = async (req: NextRequest) => {
       );
     }
 
-    // Verify polling center exists (optional but recommended)
-    const pollingCenterExists = await PollingCenter.findOne({ pollingCenterId: pollingCenter });
+    // Verify polling center exists, create if it doesn't (for officers registered before this feature)
+    let pollingCenterExists = await PollingCenter.findOne({ pollingCenterId: pollingCenter });
     if (!pollingCenterExists) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid polling center ID. Polling center not found in system.' },
-        { status: 404 }
-      );
+      // Auto-create polling center for officers who registered before this feature was added
+      try {
+        pollingCenterExists = await PollingCenter.create({
+          pollingCenterId: pollingCenter,
+          name: pollingCenterName,
+          address: location,
+          district: 'Unknown',
+          thana: 'Unknown',
+          division: 'Unknown',
+          totalRegisteredVoters: totalVoters,
+          status: 'Active',
+          facilities: [],
+          accessibility: true,
+        });
+        console.log('Auto-created polling center:', pollingCenter);
+      } catch (createError) {
+        console.error('Error creating polling center:', createError);
+        return NextResponse.json(
+          { success: false, error: 'Invalid polling center ID. Polling center not found in system.' },
+          { status: 404 }
+        );
+      }
     }
 
     // Verify submitter exists
