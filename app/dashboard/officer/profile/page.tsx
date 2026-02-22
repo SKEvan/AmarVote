@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function OfficerProfileEditPage() {
   const router = useRouter();
@@ -120,11 +121,8 @@ export default function OfficerProfileEditPage() {
       
       if (currentUserId) {
         // Update via database API
-        const response = await fetch('/api/users', {
+        const response = await fetchWithAuth('/api/users', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             userId: currentUserId,
             phone: profileData.phone,
