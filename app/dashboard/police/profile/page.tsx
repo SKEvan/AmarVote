@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function ProfileEditPage() {
         
         setUserId(userIdFromStorage);
         
-        const response = await fetch('/api/users');
+        const response = await fetchWithAuth('/api/users');
         if (response.ok) {
           const data = await response.json();
           const user = (data.users || []).find((u: any) => u._id === userIdFromStorage);
@@ -113,9 +114,8 @@ export default function ProfileEditPage() {
       }
       
       // Update user in database
-      const response = await fetch('/api/users', {
+      const response = await fetchWithAuth('/api/users', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: userId,
           name: profileData.fullName,

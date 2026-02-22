@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, AlertTriangle, Clock, Bell, X, Menu, Home } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 // Import Leaflet types
 declare global {
@@ -26,7 +27,7 @@ export default function MapPage() {
   useEffect(() => {
     const loadIncidents = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const activeIncidents = (data.incidents || []).filter((inc: any) => 
