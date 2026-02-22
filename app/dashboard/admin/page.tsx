@@ -8,7 +8,10 @@ import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import ChartTooltip from '@/components/shared/ChartTooltip';
+import CustomModal from '@/components/shared/CustomModal';
+import { useModal } from '@/hooks/useModal';
 import { addAuditLog, AuditActions } from '@/lib/auditLog';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { 
   LogOut, 
   FileText, 
@@ -32,6 +35,7 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const modal = useModal();
 
   // Load vote submission status from localStorage on mount
   useEffect(() => {
@@ -63,9 +67,12 @@ export default function AdminDashboard() {
       userInfo.name || 'Admin'
     );
     
-    alert(newValue 
-      ? 'Vote submission has been ENABLED. Presiding officers can now submit vote counts.' 
-      : 'Vote submission has been DISABLED. Presiding officers cannot submit vote counts.'
+    modal.showAlert(
+      newValue 
+        ? 'Vote submission has been ENABLED. Presiding officers can now submit vote counts.' 
+        : 'Vote submission has been DISABLED. Presiding officers cannot submit vote counts.',
+      'success',
+      newValue ? 'Vote Submission Enabled' : 'Vote Submission Disabled'
     );
   };
 
@@ -86,7 +93,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadIncidents = async () => {
       try {
-        const response = await fetch('/api/incidents');
+        const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
           const mappedIncidents = (data.incidents || []).map((inc: any) => ({
@@ -109,7 +116,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadPollingCenters = async () => {
       try {
-        const response = await fetch('/api/polling-centers');
+        const response = await fetchWithAuth('/api/polling-centers');
         if (response.ok) {
           const data = await response.json();
           setPollingCenters(data.pollingCenters || []);
@@ -146,38 +153,64 @@ export default function AdminDashboard() {
 
   // Approve correction request
   const approveCorrectionRequest = () => {
-    if (confirm('Are you sure you want to approve this correction request? The officer will be able to resubmit their vote counts.')) {
-      localStorage.setItem('voteSubmissionReset', 'true');
+    modal.showConfirm(
+      'Are you sure you want to approve this correction request? The officer will be able to resubmit their vote counts.',
+      () => {
+        localStorage.setItem('voteSubmissionReset', 'true');
 
-      // Also scope reset to the requesting polling center if provided
-      if (correctionRequestMeta?.pollingCenterId) {
-        const centerKey = correctionRequestMeta.pollingCenterId;
-        localStorage.setItem(`voteSubmissionReset_${centerKey}`, 'true');
-        localStorage.setItem(`correctionUsed_${centerKey}`, 'true');
-        localStorage.setItem(`voteResubmissionWindow_${centerKey}`, 'true');
-        localStorage.removeItem(`correctionRequested_${centerKey}`);
+        // Also scope reset to the requesting polling center if provided
+        if (correctionRequestMeta?.pollingCenterId) {
+          const centerKey = correctionRequestMeta.pollingCenterId;
+          localStorage.setItem(`voteSubmissionReset_${centerKey}`, 'true');
+          localStorage.setItem(`correctionUsed_${centerKey}`, 'true');
+          localStorage.setItem(`voteResubmissionWindow_${centerKey}`, 'true');
+          localStorage.removeItem(`correctionRequested_${centerKey}`);
+        }
+
+        localStorage.removeItem('correctionRequested');
+        localStorage.removeItem('correctionRequestMeta');
+        setCorrectionRequest(false);
+        setCorrectionRequestMeta(null);
+        modal.showAlert(
+          'Correction approved! The presiding officer can now resubmit vote counts.',
+          'success',
+          'Correction Approved'
+        );
+      },
+      {
+        variant: 'warning',
+        title: 'Approve Correction Request',
+        confirmText: 'Approve',
+        cancelText: 'Cancel'
       }
-
-      localStorage.removeItem('correctionRequested');
-      localStorage.removeItem('correctionRequestMeta');
-      setCorrectionRequest(false);
-      setCorrectionRequestMeta(null);
-      alert('Correction approved! The presiding officer can now resubmit vote counts.');
-    }
+    );
   };
 
   // Reject correction request
   const rejectCorrectionRequest = () => {
-    if (confirm('Are you sure you want to reject this correction request?')) {
-      if (correctionRequestMeta?.pollingCenterId) {
-        localStorage.removeItem(`correctionRequested_${correctionRequestMeta.pollingCenterId}`);
+    modal.showConfirm(
+      'Are you sure you want to reject this correction request?',
+      () => {
+        if (correctionRequestMeta?.pollingCenterId) {
+          localStorage.removeItem(`correctionRequested_${correctionRequestMeta.pollingCenterId}`);
+        }
+        localStorage.removeItem('correctionRequested');
+        localStorage.removeItem('correctionRequestMeta');
+        setCorrectionRequest(false);
+        setCorrectionRequestMeta(null);
+        modal.showAlert(
+          'Correction request rejected.',
+          'info',
+          'Request Rejected'
+        );
+      },
+      {
+        variant: 'warning',
+        title: 'Reject Correction Request',
+        confirmText: 'Reject',
+        cancelText: 'Cancel'
       }
-      localStorage.removeItem('correctionRequested');
-      localStorage.removeItem('correctionRequestMeta');
-      setCorrectionRequest(false);
-      setCorrectionRequestMeta(null);
-      alert('Correction request rejected.');
-    }
+    );
   };
 
   const handleLogout = () => {
@@ -204,16 +237,16 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadVotes = async () => {
       try {
-        const response = await fetch('/api/votes');
+        const response = await fetchWithAuth('/api/votes');
         if (response.ok) {
           const data = await response.json();
           setVoteSubmissions(data.votes || []);
         } else {
-          console.error('Failed to fetch votes');
+          // Silently set empty array - no error needed for empty votes
           setVoteSubmissions([]);
         }
       } catch (e) {
-        console.error('Error loading vote submissions', e);
+        // Silently handle error - votes might not be available yet
         setVoteSubmissions([]);
       }
     };
@@ -304,7 +337,7 @@ export default function AdminDashboard() {
                 {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
               <div className="flex items-center gap-3">
-                <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={36} height={36} className="rounded-lg shadow-sm" />
+                <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={36} height={36} className="rounded-lg shadow-sm" />
                 <h1 className="text-xl font-bold">Admin Dashboard - AmarVote</h1>
               </div>
             </div>
@@ -445,36 +478,36 @@ export default function AdminDashboard() {
 
           {/* Vote Count by Party Chart */}
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Vote Count by Party</h2>
-                <p className="text-sm text-gray-500 mt-1">Party-wise vote tracking</p>
-              </div>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Vote Count by Party</h2>
+              <p className="text-sm text-gray-500 mt-1">Party-wise vote tracking</p>
             </div>
             
-            <div className="flex items-end justify-around h-64 gap-4 pb-8 pt-6">
-              {partyVotes.map((party) => {
-                const barHeight = maxVotes === 0 ? 0 : (party.votes / maxVotes) * chartHeight;
-                return (
-                  <div key={party.id} className="flex flex-col items-center flex-1">
-                    <div className="w-full bg-gray-200 rounded-t-lg relative" style={{ height: `${chartHeight}px` }}>
-                      <div
-                        className="w-full rounded-t-lg transition-all duration-300 hover:opacity-80 cursor-pointer"
-                        style={{
-                          height: `${barHeight}px`,
-                          backgroundColor: party.color,
-                          position: 'absolute',
-                          bottom: 0,
-                        }}
-                        onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, content: `${party.id}: ${party.votes.toLocaleString()} votes` })}
-                        onMouseLeave={() => setTooltip(null)}
-                        onClick={() => router.push(`/dashboard/admin/incidents`)}
-                      ></div>
+            {/* Chart Container with proper spacing */}
+            <div className="mt-8">
+              <div className="flex items-end justify-around gap-4" style={{ height: `${chartHeight + 60}px` }}>
+                {partyVotes.map((party) => {
+                  const barHeight = maxVotes === 0 ? 0 : (party.votes / maxVotes) * chartHeight;
+                  return (
+                    <div key={party.id} className="flex flex-col items-center justify-end flex-1 h-full">
+                      <div className="w-full flex flex-col items-center justify-end" style={{ height: `${chartHeight}px` }}>
+                        <div
+                          className="w-full rounded-t-lg transition-all duration-300 hover:opacity-80 cursor-pointer relative"
+                          style={{
+                            height: `${barHeight}px`,
+                            backgroundColor: party.color,
+                            minHeight: '4px'
+                          }}
+                          onMouseMove={(e) => setTooltip({ x: e.clientX, y: e.clientY, content: `${party.id}: ${party.votes.toLocaleString()} votes` })}
+                          onMouseLeave={() => setTooltip(null)}
+                          onClick={() => router.push(`/dashboard/admin/incidents`)}
+                        ></div>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900 mt-3">{party.id}</p>
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 mt-3">{party.id}</p>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
             {tooltip && <ChartTooltip x={tooltip.x} y={tooltip.y}>{tooltip.content}</ChartTooltip>}
@@ -582,6 +615,19 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Custom Modal */}
+      <CustomModal
+        isOpen={modal.isOpen}
+        onClose={modal.handleClose}
+        title={modal.config.title}
+        message={modal.config.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        variant={modal.config.variant}
+        confirmText={modal.config.confirmText}
+        cancelText={modal.config.cancelText}
+      />
     </div>
   );
 }
