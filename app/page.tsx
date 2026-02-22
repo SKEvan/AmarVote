@@ -11,7 +11,7 @@ export default function Home() {
         <div className="flex items-center justify-center mb-8 animate-fade-in">
           <div className="w-16 h-16 sm:w-20 sm:h-20 mr-4 sm:mr-5 animate-float">
             <Image
-              src="/images/logo-AmarVote.png"
+              src="/images/logo-AmarVote.svg"
               alt="AmarVote logo"
               width={80}
               height={80}
@@ -249,7 +249,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400 text-sm">
             <div className="flex items-center gap-2">
-              <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={28} height={28} className="rounded-md" />
+              <Image src="/images/logo-AmarVote.svg" alt="AmarVote" width={28} height={28} className="rounded-md" />
               <span>AmarVote</span>
               <span className="ml-4">© 2026 AmarVote. All rights reserved.</span>
             </div>

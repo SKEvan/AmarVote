@@ -56,7 +56,7 @@ export default function GlobalLoading() {
           <div className="w-24 h-24 mx-auto mb-6 relative">
             <div className="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-xl animate-pulse"></div>
             <Image
-              src="/images/logo-AmarVote.png"
+              src="/images/logo-AmarVote.svg"
               alt="AmarVote"
               width={96}
               height={96}

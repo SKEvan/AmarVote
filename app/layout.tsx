@@ -13,10 +13,29 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'AmarVote - Secure Election Monitoring & Management System',
   description: 'Real-time incident tracking, vote management, and automated alerts for transparent elections',
+  manifest: '/manifest.json',
   icons: {
-    icon: '/images/logo-AmarVote.png',
-    shortcut: '/images/logo-AmarVote.png',
-    apple: '/images/logo-AmarVote.png'
+    icon: [
+      { url: '/images/logo-AmarVote.svg', type: 'image/svg+xml' },
+      { url: '/images/logo-AmarVote.svg', sizes: '32x32', type: 'image/svg+xml' },
+      { url: '/images/logo-AmarVote.svg', sizes: '192x192', type: 'image/svg+xml' },
+      { url: '/images/logo-AmarVote.svg', sizes: '512x512', type: 'image/svg+xml' }
+    ],
+    shortcut: '/images/logo-AmarVote.svg',
+    apple: [
+      { url: '/images/logo-AmarVote.svg', sizes: '180x180', type: 'image/svg+xml' }
+    ]
+  },
+  openGraph: {
+    title: 'AmarVote - Secure Election Monitoring & Management System',
+    description: 'Real-time incident tracking, vote management, and automated alerts for transparent elections',
+    images: ['/images/logo-AmarVote.svg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AmarVote - Secure Election Monitoring & Management System',
+    description: 'Real-time incident tracking, vote management, and automated alerts for transparent elections',
+    images: ['/images/logo-AmarVote.svg'],
   }
 }
 
