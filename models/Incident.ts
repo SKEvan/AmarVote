@@ -15,6 +15,10 @@ export interface IIncident extends Document {
     lat: number;
     lng: number;
   };
+  gpsLocation?: {
+    lat: number;
+    lng: number;
+  };
   reportedBy: {
     userId: string;
     name: string;
@@ -78,6 +82,10 @@ const IncidentSchema = new Schema<IIncident>(
     thana: String,
     district: String,
     coordinates: {
+      lat: Number,
+      lng: Number,
+    },
+    gpsLocation: {
       lat: Number,
       lng: Number,
     },
