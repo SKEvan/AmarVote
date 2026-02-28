@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import UserProfileControls from '@/components/shared/UserProfileControls';
@@ -28,8 +28,9 @@ export default function PoliceIncidentsPage() {
             id: inc._id,
             gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
           }));
-          
           setIncidents(officerIncidents);
+        } else {
+          console.error('Failed to load incidents:', response.status);
         }
       } catch (error) {
         console.error('Error loading incidents:', error);
@@ -39,13 +40,23 @@ export default function PoliceIncidentsPage() {
     };
     
     loadIncidents();
-    const interval = setInterval(loadIncidents, 10000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadIncidents, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
-  const filteredIncidents = filterStatus === 'ALL' 
-    ? incidents 
-    : incidents.filter(inc => inc.status === filterStatus);
+  const filteredIncidents = useMemo(() => 
+    filterStatus === 'ALL' 
+      ? incidents 
+      : incidents.filter(inc => inc.status === filterStatus),
+    [incidents, filterStatus]
+  );
+
+  // Memoize statistics calculations
+  const stats = useMemo(() => ({
+    active: incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length,
+    resolved: incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed').length
+  }), [incidents]);
 
   const getSeverityColor = (severity: string) => {
     const sev = severity?.toUpperCase();
@@ -188,7 +199,7 @@ export default function PoliceIncidentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-red-600">{incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length}</p>
+                <p className="text-2xl font-bold text-red-600">{stats.active}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-600 opacity-30" />
             </div>
@@ -198,7 +209,7 @@ export default function PoliceIncidentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Resolved</p>
-                <p className="text-2xl font-bold text-green-600">{incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed').length}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-600 opacity-30" />
             </div>
@@ -208,10 +219,16 @@ export default function PoliceIncidentsPage() {
         {/* Incidents List */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           <div className="divide-y divide-gray-200">
-            {filteredIncidents.length === 0 ? (
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-3"></div>
+                <p>Loading incidents...</p>
+              </div>
+            ) : filteredIncidents.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>No incidents found</p>
+                <p>No incidents found for selected filter</p>
+                <p className="text-sm mt-2">Total incidents in database: {incidents.length}</p>
               </div>
             ) : (
               filteredIncidents.map((incident) => (
