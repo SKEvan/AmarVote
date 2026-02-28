@@ -40,13 +40,14 @@ export default function PoliceDashboard() {
           setOfficerIncidents(incidents);
           setAllIncidentsList(incidents);
           
-          // Filter active unacknowledged incidents (exclude Reported, Resolved, and Dismissed)
+          // Filter active unacknowledged incidents
           const unacknowledged = incidents.filter((inc: any) => 
-            inc.status !== 'Reported' && 
-            inc.status !== 'Resolved' && 
-            inc.status !== 'Dismissed'
+            inc.status === 'Reported' && 
+            !inc.acknowledgedBy
           );
           setActiveUnacknowledgedIncidents(unacknowledged);
+        } else {
+          console.error('Failed to fetch incidents:', response.status);
         }
       } catch (error) {
         console.error('Error loading incidents:', error);
@@ -56,8 +57,9 @@ export default function PoliceDashboard() {
     };
     
     loadIncidents();
-    const interval = setInterval(loadIncidents, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadIncidents, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {

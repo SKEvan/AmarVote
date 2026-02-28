@@ -101,15 +101,17 @@ export default function AdminDashboard() {
             id: inc._id,
           }));
           setOfficerIncidents(mappedIncidents);
+        } else {
+          console.error('Failed to load incidents:', response.status);
         }
       } catch (error) {
         console.error('Error loading incidents:', error);
       }
     };
     loadIncidents();
-    // Check for new incidents every 5 seconds
-    const interval = setInterval(loadIncidents, 5000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadIncidents, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   // Load polling centers from database
@@ -147,7 +149,7 @@ export default function AdminDashboard() {
       }
     };
     checkCorrectionRequest();
-    const interval = setInterval(checkCorrectionRequest, 2000);
+    const interval = setInterval(checkCorrectionRequest, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -253,11 +255,11 @@ export default function AdminDashboard() {
 
     loadVotes();
 
-    // Reload votes periodically for real-time updates
-    const interval = setInterval(loadVotes, 10000); // Every 10 seconds
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadVotes, 10000);
 
     return () => {
-      clearInterval(interval);
+      // clearInterval(interval);
     };
   }, []);
 
