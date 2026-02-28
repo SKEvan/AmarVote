@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useRouter } from 'next/navigation';
@@ -43,6 +43,9 @@ export default function IncidentMapPage() {
             division: inc.location || inc.division || 'Unknown',
           }));
           setIncidents(parsedIncidents);
+        } else {
+          console.error('Failed to load incidents:', response.status);
+          setIncidents([]);
         }
       } catch (error) {
         console.error('Error loading incidents:', error);
@@ -50,13 +53,17 @@ export default function IncidentMapPage() {
       }
     };
     loadIncidents();
-    const interval = setInterval(loadIncidents, 5000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadIncidents, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
-  // Filters + search
+  // Filters + search - memoized for performance
   const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
-  const filteredIncidents = incidents.filter(i => filterSeverity === 'ALL' || i.severity === filterSeverity);
+  const filteredIncidents = useMemo(() => 
+    incidents.filter(i => filterSeverity === 'ALL' || i.severity === filterSeverity),
+    [incidents, filterSeverity]
+  );
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -102,63 +109,25 @@ export default function IncidentMapPage() {
     };
   }, []);
 
-  // Update markers when incidents or filters change
-  useEffect(() => {
-    if (mapInstanceRef.current && window.L) {
-      updateMarkers();
-    }
-  }, [incidents, filterSeverity]);
-
-  const updateMarkers = () => {
+  // Update markers - memoized function
+  const updateMarkers = useCallback(() => {
     if (!mapInstanceRef.current || !window.L) return;
 
+    // Clear existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // use filteredIncidents so markers respect selected filters
+    // Use filteredIncidents so markers respect selected filters - simplified for performance
     filteredIncidents.forEach((incident) => {
       const color = incident.severity === 'CRITICAL' ? '#dc2626' : 
                    incident.severity === 'HIGH' ? '#ea580c' : '#ca8a04';
       
+      // Simplified marker for better performance
       const customIcon = window.L.divIcon({
         className: 'custom-marker',
-        html: `
-          <div style="position: relative;">
-            <div style="
-              width: 40px;
-              height: 40px;
-              background-color: ${color};
-              border: 3px solid white;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-              ${incident.status === 'pending' ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''}
-            ">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-            </div>
-            <div style="
-              position: absolute;
-              top: 45px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: white;
-              padding: 4px 8px;
-              border-radius: 4px;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-              font-size: 11px;
-              font-weight: bold;
-              white-space: nowrap;
-            ">${incident.id}</div>
-          </div>
-        `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        html: `<div style="width:24px;height:24px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
 
       const marker = window.L.marker([incident.lat, incident.lng], { icon: customIcon })
@@ -168,29 +137,23 @@ export default function IncidentMapPage() {
           router.push(`/dashboard/admin/incidents/${incident.id}`);
         });
 
-      marker.bindPopup(`
-        <div style="font-family: system-ui; padding: 8px;">
-          <div style="font-weight: bold; color: ${color}; margin-bottom: 4px;">${incident.id} - ${incident.severity}</div>
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">${incident.title}</div>
-          <div style="font-size: 12px; color: #666;">
-            <div style="margin-bottom: 4px;">📍 ${incident.location}</div>
-            <div style="margin-bottom: 4px;">🕐 ${incident.reportedTime}</div>
-            <div>📋 Type: ${incident.type}</div>
-          </div>
-        </div>
-      `);
+      // Simplified popup for better performance
+      marker.bindPopup(`<b style="color:${color}">${incident.severity}</b><br>${incident.location}`);
 
       markersRef.current.push(marker);
     });
-  };
+  }, [filteredIncidents, router]);
 
+  // Update markers when callback changes
   useEffect(() => {
-    // refresh markers when filter changes
-    updateMarkers();
-  }, [filterSeverity]);
+    if (mapInstanceRef.current && window.L) {
+      updateMarkers();
+    }
+  }, [updateMarkers]);
 
   // Calculate division breakdown (based on filtered incidents)
-  const divisionBreakdown = filteredIncidents.reduce((acc, inc) => {
+  const divisionBreakdown = useMemo(() => 
+    filteredIncidents.reduce((acc, inc) => {
     const existing = acc.find((d: { division: string; count: number }) => d.division === inc.division);
     if (existing) {
       existing.count++;
@@ -198,7 +161,9 @@ export default function IncidentMapPage() {
       acc.push({ division: inc.division, count: 1 });
     }
     return acc;
-  }, [] as Array<{ division: string; count: number }>);
+  }, [] as Array<{ division: string; count: number }>),
+    [filteredIncidents]
+  );
 
   // Reset pie tooltip when filters change (left chart), but severity chart stays unfiltered
   useEffect(() => {
