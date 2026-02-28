@@ -331,12 +331,12 @@ export default function OfficerDashboard() {
   const [gpsLocation, setGpsLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  // Keep incident location locked to the officer's polling center
+  // Set incident location to the officer's polling center name
   useEffect(() => {
-    if (pollingCenterId) {
-      setIncidentLocation(pollingCenterId);
+    if (pollingCenterName) {
+      setIncidentLocation(pollingCenterName);
     }
-  }, [pollingCenterId]);
+  }, [pollingCenterName]);
 
   // Load incidents from database for this officer
   useEffect(() => {
@@ -458,17 +458,34 @@ export default function OfficerDashboard() {
             lng: position.coords.longitude
           });
           setIsGettingLocation(false);
+          modal.showAlert(
+            `Your exact location has been captured:\nLatitude: ${position.coords.latitude.toFixed(6)}\nLongitude: ${position.coords.longitude.toFixed(6)}`,
+            'success',
+            'GPS Location Captured Successfully!'
+          );
         },
         (error) => {
-          // Fallback to default Dhaka coordinates
-          setGpsLocation({ lat: 23.8103, lng: 90.4125 });
+          console.error('GPS Error:', error);
           setIsGettingLocation(false);
+          modal.showAlert(
+            'Failed to get GPS location. Please enable location services and try again.',
+            'error',
+            'GPS Error'
+          );
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     } else {
-      // Fallback to default Dhaka coordinates
-      setGpsLocation({ lat: 23.8103, lng: 90.4125 });
       setIsGettingLocation(false);
+      modal.showAlert(
+        'Geolocation is not supported by your browser. GPS location is required to report incidents.',
+        'error',
+        'Geolocation Not Supported'
+      );
     }
   };
 
@@ -484,9 +501,17 @@ export default function OfficerDashboard() {
     }
     if (!incidentDescription.trim()) {
       modal.showAlert(
-        'Please provide a description of the incident.',
+        'Please provide an incident description.',
         'warning',
         'Missing Information'
+      );
+      return;
+    }
+    if (!gpsLocation) {
+      modal.showAlert(
+        'Please capture GPS location before submitting the incident. Click the "Get GPS Location" button.',
+        'warning',
+        'GPS Location Required'
       );
       return;
     }
@@ -526,7 +551,7 @@ export default function OfficerDashboard() {
         type: incidentType,
         severity: severityMap[incidentSeverity] || 'Medium',
         description: incidentDescription,
-        location: incidentLocation || pollingCenterId,
+        location: incidentLocation || pollingCenterName || 'Unknown Location',
         pollingCenterId: pollingCenterId,
         pollingCenterName: pollingCenterName || userInfo.pollingCenterName || 'Unknown Center',
         reportedBy: {
@@ -534,7 +559,7 @@ export default function OfficerDashboard() {
           name: userName,
           role: 'officer'
         },
-        gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
+        gpsLocation: gpsLocation,
         attachments: base64Files,
         status: 'Reported'
       };

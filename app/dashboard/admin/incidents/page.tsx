@@ -119,6 +119,12 @@ export default function IncidentMapPage() {
 
     // Use filteredIncidents so markers respect selected filters - simplified for performance
     filteredIncidents.forEach((incident) => {
+      // Skip incidents without valid GPS coordinates
+      if (!incident.lat || !incident.lng || 
+          (incident.lat === 23.8103 && incident.lng === 90.4125)) {
+        return;
+      }
+      
       const color = incident.severity === 'CRITICAL' ? '#dc2626' : 
                    incident.severity === 'HIGH' ? '#ea580c' : '#ca8a04';
       

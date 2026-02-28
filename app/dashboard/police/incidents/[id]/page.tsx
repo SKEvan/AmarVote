@@ -33,7 +33,7 @@ export default function PoliceIncidentDetailsPage() {
             });
             setFetchedIncidentData(found);
             setHandlingNotes(found.notes || '');
-            setHasAcknowledged(found.status === 'Under Investigation' || found.status === 'Resolved');
+            setHasAcknowledged(found.status === 'Resolved');
             
             // Log incident view
             await fetchWithAuth('/api/audit-logs', {
@@ -76,9 +76,12 @@ export default function PoliceIncidentDetailsPage() {
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
       const currentUserId = localStorage.getItem('currentUserId');
       
+      console.log('Current user data from localStorage:', userData);
+      console.log('Current user ID:', currentUserId);
+      
       const updatePayload = {
         incidentId: incidentId,
-        status: 'Under Investigation',
+        status: 'Resolved',
         acknowledgedBy: {
           userId: currentUserId || 'unknown',
           name: userData.name || 'Unknown Officer',
@@ -102,7 +105,7 @@ export default function PoliceIncidentDetailsPage() {
         
         setIncident({
           ...incident,
-          status: 'Under Investigation',
+          status: 'Resolved',
           acknowledgedBy: updatePayload.acknowledgedBy,
           acknowledgedAt: updatePayload.acknowledgedAt,
           acknowledgementNotes: handlingNotes,
@@ -204,6 +207,10 @@ export default function PoliceIncidentDetailsPage() {
             <div>
               <h1 className="text-xl font-bold">Incident Details</h1>
               <p className="text-xs text-red-100">{incident.id}</p>
+              {/* Debug: Show current logged in user */}
+              <p className="text-xs text-red-100 mt-1">
+                Logged in as: {JSON.parse(localStorage.getItem('user') || '{}').name || 'Unknown'}
+              </p>
             </div>
           </div>
           <UserProfileControls role="police" />
@@ -390,13 +397,79 @@ export default function PoliceIncidentDetailsPage() {
               </div>
             )}
 
-            {/* Acknowledge Incident Button */}
-            {!hasAcknowledged && (
+            {/* Acknowledge Incident Button - Only show when Under Investigation */}
+            {incident.status === 'Under Investigation' && (
               <button
                 onClick={() => setShowAcknowledgeModal(true)}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 Acknowledge Incident & Add Notes
+              </button>
+            )}
+
+            {/* Navigate Button - Sets status to Under Investigation */}
+            {incident.status === 'Reported' && (
+              <button
+                onClick={async () => {
+                  try {
+                    const userData = JSON.parse(localStorage.getItem('user') || '{}');
+                    const currentUserId = localStorage.getItem('currentUserId');
+                    
+                    const response = await fetchWithAuth('/api/incidents', {
+                      method: 'PATCH',
+                      body: JSON.stringify({
+                        incidentId: incidentId,
+                        status: 'Under Investigation',
+                        acknowledgedBy: {
+                          userId: currentUserId || '',
+                          name: userData?.name || 'Unknown Officer',
+                          role: 'Law Enforcement'
+                        },
+                        acknowledgedAt: new Date().toISOString(),
+                      }),
+                    });
+
+                    if (response.ok) {
+                      setIncident({ ...incident, status: 'Under Investigation' });
+                      setHasAcknowledged(false);
+                      
+                      // Open Google Maps with route from current location to incident
+                      if (incident.gpsLocation || incident.coordinates) {
+                        const lat = incident.gpsLocation?.lat || incident.coordinates?.lat;
+                        const lng = incident.gpsLocation?.lng || incident.coordinates?.lng;
+                        
+                        // Get police officer's current location
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                              const originLat = position.coords.latitude;
+                              const originLng = position.coords.longitude;
+                              // Open Google Maps with route from current location to incident
+                              window.open(`https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${lat},${lng}&travelmode=driving`, '_blank');
+                            },
+                            (error) => {
+                              console.error('Error getting current location:', error);
+                              // Fallback: Just show destination
+                              window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                            }
+                          );
+                        } else {
+                          // Fallback: Just show destination
+                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                        }
+                      } else {
+                        const location = encodeURIComponent(incident.location);
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${location}`, '_blank');
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error updating incident:', error);
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <MapPin className="w-5 h-5" />
+                Navigate to Location
               </button>
             )}
           </div>
@@ -548,7 +621,7 @@ export default function PoliceIncidentDetailsPage() {
             
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Success!</h2>
             <p className="text-gray-600 mb-6">
-              Incident acknowledged successfully! The incident status has been updated to "Under Investigation".
+              Incident acknowledged successfully! The incident status has been updated to "Resolved".
             </p>
             
             <button

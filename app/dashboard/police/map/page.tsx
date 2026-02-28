@@ -30,15 +30,20 @@ export default function MapPage() {
         const response = await fetchWithAuth('/api/incidents');
         if (response.ok) {
           const data = await response.json();
+          
+          // Show all incidents except Resolved and Dismissed
           const activeIncidents = (data.incidents || []).filter((inc: any) => 
-            inc.status !== 'Reported' && 
             inc.status !== 'Resolved' && 
             inc.status !== 'Dismissed'
           );
           
           const mappedIncidents = activeIncidents.map((inc: any) => {
-            const lat = inc.coordinates?.lat || 23.8103;
-            const lng = inc.coordinates?.lng || 90.4125;
+            // Use gpsLocation first, then fallback to coordinates
+            const lat = inc.gpsLocation?.lat || inc.coordinates?.lat;
+            const lng = inc.gpsLocation?.lng || inc.coordinates?.lng;
+            
+            // Skip incidents without valid GPS coordinates
+            if (!lat || !lng) return null;
             
             return {
               id: inc._id,
@@ -54,7 +59,8 @@ export default function MapPage() {
               severity: inc.severity,
               gpsLocation: { lat, lng },
             };
-          });
+          }).filter(Boolean); // Remove null entries
+          
           setIncidents(mappedIncidents);
         }
       } catch (error) {

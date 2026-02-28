@@ -26,7 +26,7 @@ export default function PoliceIncidentsPage() {
           const officerIncidents = (data.incidents || []).map((inc: any) => ({
             ...inc,
             id: inc._id,
-            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+            gpsLocation: inc.gpsLocation || inc.coordinates || null,
           }));
           setIncidents(officerIncidents);
         } else {

@@ -33,8 +33,8 @@ export default function PoliceDashboard() {
           const incidents = (data.incidents || []).map((inc: any) => ({
             ...inc,
             id: inc._id,
-            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
-            coordinates: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+            gpsLocation: inc.gpsLocation || inc.coordinates || null,
+            coordinates: inc.gpsLocation || inc.coordinates || null,
           }));
           
           setOfficerIncidents(incidents);
@@ -96,11 +96,11 @@ export default function PoliceDashboard() {
         method: 'PATCH',
         body: JSON.stringify({
           incidentId: acknowledgeIncidentId,
-          status: 'Reported',
+          status: 'Resolved',
           acknowledgedBy: {
             userId: currentUserId || '',
             name: currentUser?.name || 'Unknown Officer',
-            role: 'Police'
+            role: 'Law Enforcement'
           },
           acknowledgedAt: new Date().toISOString(),
           acknowledgementNotes: handlingNotes,
@@ -116,10 +116,17 @@ export default function PoliceDashboard() {
           const incidents = (data.incidents || []).map((inc: any) => ({
             ...inc,
             id: inc._id,
-            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
-            coordinates: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+            gpsLocation: inc.gpsLocation || inc.coordinates || null,
+            coordinates: inc.gpsLocation || inc.coordinates || null,
           }));
           setOfficerIncidents(incidents);
+          setAllIncidentsList(incidents);
+          
+          const unacknowledged = incidents.filter((inc: any) => 
+            inc.status === 'Reported' && 
+            !inc.acknowledgedBy
+          );
+          setActiveUnacknowledgedIncidents(unacknowledged);
         }
         
         setShowAcknowledgeModal(false);
@@ -136,13 +143,80 @@ export default function PoliceDashboard() {
     }
   };
 
-  const handleNavigate = (incident: any) => {
-    // If incident has GPS coordinates, open in Google Maps
-    if (incident.gpsLocation) {
+  const handleNavigate = async (incident: any) => {
+    console.log('Navigate clicked for incident:', incident.id);
+    console.log('GPS Location:', incident.gpsLocation);
+    console.log('Coordinates:', incident.coordinates);
+    
+    try {
+      // Update incident status to "Under Investigation" when navigating
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = localStorage.getItem('currentUserId');
+      
+      const response = await fetchWithAuth('/api/incidents', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          incidentId: incident.id,
+          status: 'Under Investigation',
+          acknowledgedBy: {
+            userId: currentUserId || '',
+            name: userData?.name || 'Unknown Officer',
+            role: 'Law Enforcement'
+          },
+          acknowledgedAt: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh incidents to show updated status
+        const fetchResponse = await fetchWithAuth('/api/incidents');
+        if (fetchResponse.ok) {
+          const data = await fetchResponse.json();
+          const incidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+            gpsLocation: inc.gpsLocation || inc.coordinates || null,
+            coordinates: inc.gpsLocation || inc.coordinates || null,
+          }));
+          setOfficerIncidents(incidents);
+          setAllIncidentsList(incidents);
+          
+          const unacknowledged = incidents.filter((inc: any) => 
+            inc.status === 'Reported' && 
+            !inc.acknowledgedBy
+          );
+          setActiveUnacknowledgedIncidents(unacknowledged);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating incident status:', error);
+    }
+
+    // Open in Google Maps with route from current location to incident
+    if (incident.gpsLocation && incident.gpsLocation.lat && incident.gpsLocation.lng) {
       const { lat, lng } = incident.gpsLocation;
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+      
+      // Get police officer's current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const originLat = position.coords.latitude;
+            const originLng = position.coords.longitude;
+            // Open Google Maps with route from current location to incident
+            window.open(`https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${lat},${lng}&travelmode=driving`, '_blank');
+          },
+          (error) => {
+            console.error('Error getting current location:', error);
+            // Fallback: Just show destination if can't get current location
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+          }
+        );
+      } else {
+        // Fallback: Just show destination if geolocation not supported
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+      }
     } else {
-      // Fallback to location string search
+      // Fallback to location name search
       const location = encodeURIComponent(incident.location);
       window.open(`https://www.google.com/maps/search/?api=1&query=${location}`, '_blank');
     }

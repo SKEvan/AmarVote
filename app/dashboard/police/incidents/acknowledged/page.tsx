@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Shield, MapPin, Clock, FileText } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 
-export default function IncidentAcknowledgedPage() {
+function IncidentAcknowledgedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [incidentData, setIncidentData] = useState<any>(null);
@@ -164,12 +164,12 @@ export default function IncidentAcknowledgedPage() {
             )}
 
             {/* Status Badge */}
-            <div className="bg-blue-50 rounded-xl p-6 border-2 border-blue-200 text-center">
-              <p className="text-sm text-blue-700 font-medium mb-2">New Status</p>
-              <div className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg">
-                UNDER INVESTIGATION
+            <div className="bg-green-50 rounded-xl p-6 border-2 border-green-200 text-center">
+              <p className="text-sm text-green-700 font-medium mb-2">New Status</p>
+              <div className="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg">
+                RESOLVED
               </div>
-              <p className="text-xs text-blue-600 mt-3">This incident is now marked as being actively investigated</p>
+              <p className="text-xs text-green-600 mt-3">This incident has been successfully resolved</p>
             </div>
           </div>
         </div>
@@ -202,8 +202,8 @@ export default function IncidentAcknowledgedPage() {
             <div>
               <h4 className="text-sm font-bold text-blue-900 mb-1">What happens next?</h4>
               <p className="text-sm text-blue-800">
-                This incident has been marked as "Under Investigation" and your notes have been recorded. 
-                The admin dashboard has been updated with your response. You can view and update this incident 
+                This incident has been marked as "Resolved" and your notes have been recorded. 
+                The admin dashboard has been updated with your response. You can view this incident 
                 at any time from your dashboard.
               </p>
             </div>
@@ -211,5 +211,20 @@ export default function IncidentAcknowledgedPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function IncidentAcknowledgedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <IncidentAcknowledgedContent />
+    </Suspense>
   );
 }
