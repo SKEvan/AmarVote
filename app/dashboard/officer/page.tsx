@@ -125,8 +125,8 @@ export default function OfficerDashboard() {
     // Check on mount
     checkVoteSubmissionStatus();
 
-    // Check periodically (every 2 seconds) in case admin changes it
-    const interval = setInterval(checkVoteSubmissionStatus, 2000);
+    // Check periodically (every 10 seconds) in case admin changes it
+    const interval = setInterval(checkVoteSubmissionStatus, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -252,7 +252,7 @@ export default function OfficerDashboard() {
     };
     
     checkForReset();
-    const interval = setInterval(checkForReset, 2000);
+    const interval = setInterval(checkForReset, 10000);
     return () => clearInterval(interval);
   }, [pollingCenterId]);
 
@@ -337,6 +337,40 @@ export default function OfficerDashboard() {
       setIncidentLocation(pollingCenterId);
     }
   }, [pollingCenterId]);
+
+  // Load incidents from database for this officer
+  useEffect(() => {
+    const loadIncidentsFromDatabase = async () => {
+      try {
+        const currentUserId = localStorage.getItem('currentUserId');
+        if (!currentUserId) return;
+
+        const response = await fetchWithAuth(`/api/incidents?userId=${currentUserId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const mappedIncidents: Incident[] = (data.incidents || []).map((inc: any) => ({
+            id: inc._id,
+            type: inc.type?.toLowerCase() || 'other',
+            severity: inc.severity?.toLowerCase() || 'medium',
+            description: inc.description,
+            location: inc.location || inc.pollingCenterId,
+            timestamp: inc.reportedAt,
+            status: inc.status === 'Reported' ? 'submitted' : 'pending',
+            attachments: [],
+            gpsLocation: inc.coordinates || inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
+          }));
+          setSubmittedIncidents(mappedIncidents);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
+      }
+    };
+
+    loadIncidentsFromDatabase();
+    // Auto-refresh disabled for performance
+    // const interval = setInterval(loadIncidentsFromDatabase, 30000);
+    // return () => clearInterval(interval);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -471,6 +505,22 @@ export default function OfficerDashboard() {
         critical: 'Critical'
       };
       
+      // Convert attached files to base64 for storage
+      const filePromises = attachedFiles.map(file => {
+        return fetch(file.url)
+          .then(res => res.blob())
+          .then(blob => {
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          });
+      });
+      
+      const base64Files = await Promise.all(filePromises);
+      
       const incidentData = {
         title: incidentTitle || `${incidentType} Incident`,
         type: incidentType,
@@ -485,7 +535,7 @@ export default function OfficerDashboard() {
           role: 'officer'
         },
         gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
-        attachments: attachedFiles.map(file => file.name),
+        attachments: base64Files,
         status: 'Reported'
       };
 
