@@ -1,0 +1,11 @@
+.env.local
+.env
+node_modules
+.next
+scripts/seedDatabase.ts
+scripts/cleanupSampleData.ts
+scripts/migrateGPSLocation.js
+scripts/clearOldIncidents.js
+scripts/checkIncidentsForMap.js
+*.md
+!README.md
