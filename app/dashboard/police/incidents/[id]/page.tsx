@@ -14,6 +14,7 @@ export default function PoliceIncidentDetailsPage() {
   const [incident, setIncident] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [handlingNotes, setHandlingNotes] = useState('');
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
   const [fetchedIncidentData, setFetchedIncidentData] = useState<any>(null);
@@ -90,9 +91,8 @@ export default function PoliceIncidentDetailsPage() {
       console.log('Sending acknowledgement payload:', updatePayload);
       
       // Update incident status in database
-      const response = await fetch(`/api/incidents`, {
+      const response = await fetchWithAuth(`/api/incidents`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload),
       });
 
@@ -110,7 +110,7 @@ export default function PoliceIncidentDetailsPage() {
         setFetchedIncidentData(updatedData.incident);
         setHasAcknowledged(true);
         setShowAcknowledgeModal(false);
-
+        
         // Log incident acknowledgement
         await fetchWithAuth('/api/audit-logs', {
           method: 'POST',
@@ -122,7 +122,10 @@ export default function PoliceIncidentDetailsPage() {
           }),
         });
 
-        alert('Incident acknowledged successfully!');
+        // Show success modal after a brief delay
+        setTimeout(() => {
+          setShowSuccessModal(true);
+        }, 100);
       } else {
         const errorData = await response.json();
         console.error('Failed to acknowledge incident:', errorData);
@@ -322,25 +325,66 @@ export default function PoliceIncidentDetailsPage() {
             </div>
 
             {/* Law Enforcement Response - If Available */}
-            {(fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes) && (
-              <div className="bg-red-50 rounded-lg border-2 border-red-300 p-6">
-                <h2 className="text-lg font-semibold text-red-900 mb-4">Law Enforcement Response</h2>
-                <div className="bg-white rounded p-4 mb-3 border border-red-200">
-                  <p className="text-gray-900 whitespace-pre-wrap">
-                    {fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes}
-                  </p>
-                </div>
-                {fetchedIncidentData?.acknowledgedAt && fetchedIncidentData?.acknowledgedBy && (
-                  <div className="text-sm text-red-700 space-y-1">
-                    <p>
-                      <strong>Acknowledged By:</strong> {fetchedIncidentData.acknowledgedBy.name} ({fetchedIncidentData.acknowledgedBy.role})
-                    </p>
-                    <p>
-                      <strong>Badge/ID:</strong> {fetchedIncidentData.acknowledgedBy.userId}
-                    </p>
-                    <p>
-                      <strong>Acknowledged At:</strong> {new Date(fetchedIncidentData.acknowledgedAt).toLocaleString()}
-                    </p>
+            {(fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes || incident?.acknowledgedBy) && (
+              <div className="bg-green-50 rounded-lg border-2 border-green-300 p-6">
+                <h2 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Law Enforcement Officer Response
+                </h2>
+                
+                {/* Acknowledged By Information */}
+                {(fetchedIncidentData?.acknowledgedBy || incident?.acknowledgedBy) && (
+                  <div className="bg-white rounded-lg p-5 mb-4 border-2 border-green-300 shadow-sm">
+                    <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-3">Officer Information</p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <User className="w-5 h-5 text-green-700" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Officer Name</p>
+                          <p className="font-semibold text-gray-900 text-lg">
+                            {fetchedIncidentData?.acknowledgedBy?.name || incident?.acknowledgedBy?.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pl-11">
+                        <div>
+                          <p className="text-sm text-gray-500">Role</p>
+                          <p className="font-medium text-gray-900">
+                            {fetchedIncidentData?.acknowledgedBy?.role || incident?.acknowledgedBy?.role}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Badge/ID</p>
+                          <p className="font-mono font-medium text-gray-900">
+                            {fetchedIncidentData?.acknowledgedBy?.userId || incident?.acknowledgedBy?.userId}
+                          </p>
+                        </div>
+                      </div>
+                      {(fetchedIncidentData?.acknowledgedAt || incident?.acknowledgedAt) && (
+                        <div className="pl-11 pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-500">Acknowledged At</p>
+                          <p className="font-medium text-gray-900">
+                            {new Date(fetchedIncidentData?.acknowledgedAt || incident?.acknowledgedAt).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Acknowledgement Notes from Law Enforcement */}
+                {(fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes) && (
+                  <div className="bg-white rounded-lg p-5 border-2 border-green-300 shadow-sm">
+                    <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-3">Officer's Assessment & Notes</p>
+                    <div className="bg-green-50 rounded p-4 border border-green-200">
+                      <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+                        {fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -483,6 +527,38 @@ export default function PoliceIncidentDetailsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowSuccessModal(false)}
+          ></div>
+          
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center transform animate-in zoom-in-95 duration-300">
+            <div className="mb-6">
+              <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Success!</h2>
+            <p className="text-gray-600 mb-6">
+              Incident acknowledged successfully! The incident status has been updated to "Under Investigation".
+            </p>
+            
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -27,11 +27,15 @@ export default function IncidentDetailsPage() {
   useEffect(() => {
     const loadIncident = async () => {
       try {
-        const response = await fetch(`/api/incidents?incidentId=${incidentId}`);
+        const response = await fetchWithAuth(`/api/incidents?incidentId=${incidentId}`);
         if (response.ok) {
           const data = await response.json();
           const found = data.incident;
           console.log('Loaded incident data:', found); // Debug log
+          console.log('Attachments data:', found.attachments); // Debug attachments
+          if (found.attachments && found.attachments.length > 0) {
+            console.log('First attachment sample:', found.attachments[0].substring(0, 100));
+          }
           if (found) {
             setIncident({
               ...found,
@@ -49,6 +53,11 @@ export default function IncidentDetailsPage() {
               acknowledgementNotes: found.acknowledgementNotes
             }); // Debug log
           }
+        } else if (response.status === 401) {
+          console.error('Authentication failed - redirecting to login');
+          router.push('/login?role=admin');
+        } else {
+          console.error('Failed to load incident:', response.status);
         }
       } catch (error) {
         console.error('Error loading incident:', error);
@@ -57,7 +66,7 @@ export default function IncidentDetailsPage() {
       }
     };
     loadIncident();
-  }, [incidentId]);
+  }, [incidentId, router]);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -293,36 +302,83 @@ export default function IncidentDetailsPage() {
               
               {incident.attachments && incident.attachments.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
-                  {incident.attachments.map((file: any, index: number) => (
-                    <div key={file.id || index} className="border border-gray-200 rounded-lg overflow-hidden">
-                      {file.type?.startsWith('image/') ? (
-                        <img 
-                          src={file.url} 
-                          alt={file.name}
-                          className="w-full h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(file.url, '_blank')}
-                        />
-                      ) : (
-                        <div className="h-64 bg-gray-100 flex items-center justify-center">
-                          <div className="text-center">
-                            <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-600">{file.name}</p>
-                            <a 
-                              href={file.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 text-xs hover:underline mt-1 inline-block"
-                            >
-                              View File
-                            </a>
+                  {incident.attachments.map((attachment: any, index: number) => {
+                    // Handle both object format {id, name, type, url} and string format (base64)
+                    const isObject = typeof attachment === 'object' && attachment !== null;
+                    const imageUrl = isObject ? attachment.url : attachment;
+                    const imageName = isObject ? attachment.name : `Evidence ${index + 1}`;
+                    const imageType = isObject ? attachment.type : '';
+                    
+                    // Check if it's a base64 string (should start with data:)
+                    const isBase64 = typeof imageUrl === 'string' && imageUrl.startsWith('data:');
+                    // Check if it's just a filename (no data URL prefix)
+                    const isFilename = typeof imageUrl === 'string' && !imageUrl.startsWith('data:') && !imageUrl.startsWith('http');
+                    
+                    console.log('Rendering attachment:', { index, isObject, isBase64, isFilename, urlStart: imageUrl?.substring(0, 50) });
+                    
+                    // Skip filenames without actual data
+                    if (isFilename) {
+                      return (
+                        <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="h-64 bg-gray-100 flex items-center justify-center">
+                            <div className="text-center">
+                              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className="text-sm text-gray-600">{imageUrl}</p>
+                              <p className="text-xs text-gray-500 mt-1">Image data not available</p>
+                              <p className="text-xs text-gray-400 mt-1">(Legacy incident - image not uploaded)</p>
+                            </div>
+                          </div>
+                          <div className="p-2 bg-gray-50 border-t border-gray-200">
+                            <p className="text-xs text-gray-600 truncate">{imageName}</p>
                           </div>
                         </div>
-                      )}
-                      <div className="p-2 bg-gray-50 border-t border-gray-200">
-                        <p className="text-xs text-gray-600 truncate">{file.name}</p>
+                      );
+                    }
+                    
+                    return (
+                      <div key={isObject ? attachment.id : index} className="border border-gray-200 rounded-lg overflow-hidden">
+                        {(!isObject || imageType.startsWith('image/')) ? (
+                          <img 
+                            src={imageUrl} 
+                            alt={imageName}
+                            className="w-full h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(imageUrl, '_blank')}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              console.error('Image load error for:', imageUrl?.substring(0, 100));
+                              target.style.display = 'none';
+                              target.parentElement!.innerHTML = `
+                                <div class="h-64 bg-gray-100 flex items-center justify-center">
+                                  <div class="text-center">
+                                    <p class="text-sm text-gray-600">Failed to load image</p>
+                                    <p class="text-xs text-gray-400 mt-1">Image may be corrupted</p>
+                                  </div>
+                                </div>
+                              `;
+                            }}
+                          />
+                        ) : (
+                          <div className="h-64 bg-gray-100 flex items-center justify-center">
+                            <div className="text-center">
+                              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className="text-sm text-gray-600">{imageName}</p>
+                              <a 
+                                href={imageUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 text-xs hover:underline mt-1 inline-block"
+                              >
+                                View File
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                        <div className="p-2 bg-gray-50 border-t border-gray-200">
+                          <p className="text-xs text-gray-600 truncate">{imageName}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-gray-300">
