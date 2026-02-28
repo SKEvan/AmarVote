@@ -136,10 +136,12 @@ const UserSchema = new Schema<IUser>(
 );
 
 // Create indexes for faster queries (email and username already indexed by unique constraint)
-UserSchema.index({ role: 1, status: 1 });
+UserSchema.index({ role: 1, status: 1, createdAt: -1 }); // Compound index for filtering and sorting
 UserSchema.index({ pollingCenterId: 1, status: 1 });
 UserSchema.index({ deletedAt: 1 }); // For soft delete filtering
 UserSchema.index({ nid: 1 }, { unique: true, sparse: true }); // NID uniqueness
+UserSchema.index({ name: 1 }); // For name search
+UserSchema.index({ createdAt: -1 }); // For sorting
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 

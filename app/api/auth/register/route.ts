@@ -119,12 +119,14 @@ export async function POST(request: NextRequest) {
         await PollingCenter.create({
           pollingCenterId: otherFields.pollingCenterId,
           name: otherFields.pollingCenterName,
-          location: otherFields.pollingCenterName,
+          address: otherFields.pollingCenterName,
           division: otherFields.division || 'Unknown',
           district: otherFields.district || 'Unknown',
           thana: otherFields.thana || 'Unknown',
-          totalVoters: 0,
-          status: 'active',
+          totalRegisteredVoters: 0,
+          status: 'Active',
+          facilities: [],
+          accessibility: false,
         });
       }
     }

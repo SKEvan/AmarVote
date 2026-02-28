@@ -31,7 +31,9 @@ export default function MapPage() {
         if (response.ok) {
           const data = await response.json();
           const activeIncidents = (data.incidents || []).filter((inc: any) => 
-            inc.status !== 'Resolved' && inc.status !== 'Dismissed'
+            inc.status !== 'Reported' && 
+            inc.status !== 'Resolved' && 
+            inc.status !== 'Dismissed'
           );
           
           const mappedIncidents = activeIncidents.map((inc: any) => {

@@ -9,64 +9,72 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth';
 export default function OfficerProfileEditPage() {
   const router = useRouter();
   const [profileData, setProfileData] = useState({
-    fullName: 'Presiding Officer',
-    email: 'officer@bec.gov.bd',
-    phone: '+880 1712-345678',
-    badge: 'PO-DHK-2024',
-    station: 'Dhaka Metro',
-    district: 'Dhaka',
-    rank: 'Presiding Officer',
+    fullName: '',
+    email: '',
+    phone: '',
+    badge: '',
+    station: '',
+    district: '',
+    rank: '',
   });
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string>('');
 
   // Load existing user data from localStorage and database
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         const currentUserId = localStorage.getItem('currentUserId');
+        console.log('Loading profile for user ID:', currentUserId);
         
-        if (currentUserId) {
-          // Load from database API
-          const response = await fetch(`/api/users?userId=${currentUserId}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            const userFromDb = data.user;
-            
-            if (userFromDb) {
-              setProfileData(prev => ({
-                ...prev,
-                fullName: userFromDb.name,
-                email: userFromDb.email,
-                phone: userFromDb.phone || prev.phone,
-                badge: userFromDb.username || userFromDb._id,
-                station: userFromDb.pollingCenterName || userFromDb.location || prev.station,
-                district: userFromDb.location || prev.district,
-              }));
-              
-              if (userFromDb.avatar) {
-                setPreviewUrl(userFromDb.avatar);
-              }
-            }
-          }
+        if (!currentUserId) {
+          console.error('No user ID found in localStorage');
+          router.push('/login?role=officer');
+          return;
         }
         
-        // Also check localStorage for display data
-        const stored = localStorage.getItem('user');
-        if (stored) {
-          const user = JSON.parse(stored);
-          if (user.avatar && !previewUrl) {
-            setPreviewUrl(user.avatar);
+        setUserId(currentUserId);
+        
+        // Load from database API
+        const response = await fetchWithAuth('/api/users');
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('All users from API:', data.users?.length || 0);
+          const userFromDb = (data.users || []).find((u: any) => u._id === currentUserId);
+          
+          if (userFromDb) {
+            console.log('User found in database:', userFromDb);
+            setProfileData({
+              fullName: userFromDb.name || '',
+              email: userFromDb.email || '',
+              phone: userFromDb.phone || '',
+              badge: userFromDb.serviceId || userFromDb.username || '',
+              station: userFromDb.pollingCenterName || userFromDb.location || '',
+              district: userFromDb.thana || userFromDb.location || '',
+              rank: userFromDb.rank || 'Presiding Officer',
+            });
+            
+            if (userFromDb.avatar) {
+              setPreviewUrl(userFromDb.avatar);
+            }
+          } else {
+            console.error('User not found in database with ID:', currentUserId);
           }
+        } else {
+          console.error('Failed to fetch users:', response.status);
         }
       } catch (e) {
         console.error('Error loading user data:', e);
+      } finally {
+        setIsLoading(false);
       }
     };
     
     loadUserProfile();
-  }, []);
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfileData({
@@ -116,15 +124,12 @@ export default function OfficerProfileEditPage() {
         });
       }
       
-      // Get current user ID
-      const currentUserId = localStorage.getItem('currentUserId');
-      
-      if (currentUserId) {
-        // Update via database API
+      // Update via database API
+      if (userId) {
         const response = await fetchWithAuth('/api/users', {
           method: 'PATCH',
           body: JSON.stringify({
-            userId: currentUserId,
+            userId: userId,
             phone: profileData.phone,
             avatar: avatarDataUrl || ''
           }),
@@ -171,7 +176,16 @@ export default function OfficerProfileEditPage() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile data...</p>
+          </div>
+        </div>
+      ) : (
+      /* Main Content */
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <form onSubmit={handleSave}>
@@ -373,6 +387,7 @@ export default function OfficerProfileEditPage() {
           </form>
         </div>
       </div>
+      )}
     </div>
   );
 }

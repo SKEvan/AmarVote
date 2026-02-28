@@ -2,41 +2,82 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
-import { withAdminAuth } from '@/lib/authMiddleware';
+import { withAdminAuth, withAuth } from '@/lib/authMiddleware';
 
-// GET /api/users - Get all users or filter by query
+// GET /api/users - Get all users or filter by query with pagination
 const getHandler = async (request: NextRequest) => {
+  const startTime = Date.now();
   try {
     await dbConnect();
+    console.log(`[Users API] DB connect took: ${Date.now() - startTime}ms`);
 
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
     const status = searchParams.get('status');
     const userId = searchParams.get('userId');
+    const search = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
-    let query: any = {};
-
+    // If requesting single user by ID
     if (userId) {
-      const user = await User.findById(userId).select('-password');
+      const user = await User.findById(userId).select('-password').lean();
       if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
       return NextResponse.json({ user }, { status: 200 });
     }
 
-    if (role) query.role = role;
-    if (status) query.status = status;
+    let query: any = {};
 
-    const users = await User.find(query).select('-password').sort({ createdAt: -1 });
+    // Filter by role and status
+    if (role && role !== 'All') query.role = role;
+    if (status && status !== 'All') query.status = status;
 
-    return NextResponse.json({ users }, { status: 200 });
+    // Search by name, email, or username
+    if (search && search.trim()) {
+      query.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { email: { $regex: search.trim(), $options: 'i' } },
+        { username: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    const queryStart = Date.now();
+    // Execute query with pagination using lean() for better performance
+    const [users, totalCount] = await Promise.all([
+      User.find(query)
+        .select('-password -nidDocument') // Exclude large fields
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .maxTimeMS(10000), // 10 second timeout
+      User.countDocuments(query).maxTimeMS(5000)
+    ]);
+    
+    console.log(`[Users API] Query took: ${Date.now() - queryStart}ms, Total time: ${Date.now() - startTime}ms, Found ${users.length} users`);
+
+    return NextResponse.json({ 
+      users, 
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    }, { status: 200 });
   } catch (error: any) {
-    console.error('Error fetching users:', error);
+    console.error('[Users API] Error:', error, `Time elapsed: ${Date.now() - startTime}ms`);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 };
 
-export const GET = withAdminAuth(getHandler);
+// Allow authenticated users to access their own profile, admins can access all
+export const GET = withAuth(getHandler);
 
 // POST /api/users - Create a new user
 const postHandler = async (request: NextRequest) => {
@@ -147,7 +188,7 @@ const patchHandler = async (request: NextRequest) => {
   }
 };
 
-export const PATCH = withAdminAuth(patchHandler);
+export const PATCH = withAuth(patchHandler);
 
 // DELETE /api/users - Delete user
 const deleteHandler = async (request: NextRequest) => {

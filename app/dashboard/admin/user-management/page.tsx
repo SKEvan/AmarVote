@@ -61,6 +61,7 @@ export default function UserManagementPage() {
   const modal = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -71,7 +72,9 @@ export default function UserManagementPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const usersPerPage = 10;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const usersPerPage = 20;
 
   // New user form state
   const [newUser, setNewUser] = useState({
@@ -102,53 +105,107 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const refreshUsers = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetchWithAuth('/api/users');
-      if (response.ok) {
-        const data = await response.json();
-        // Map _id to id for compatibility
-        const mappedUsers = (data.users || []).map((user: any) => ({
-          ...user,
-          id: user._id,
-          joinedDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown',
-          lastActive: user.lastActive || 'Never'
-        }));
-        setUsers(mappedUsers);
-      } else if (response.status === 401) {
-        modal.showAlert(
-          'Session expired. Please login again.',
-          'warning',
-          'Session Expired'
-        );
-        router.push('/login?role=admin');
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Refresh when filters or page changes
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+    
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Build query parameters  
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: usersPerPage.toString(),
+        });
+        
+        if (filterRole && filterRole !== 'All') params.append('role', filterRole);
+        if (filterStatus && filterStatus !== 'All') params.append('status', filterStatus);
+        if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
+        
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        try {
+          const response = await fetchWithAuth(`/api/users?${params.toString()}`, {
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!isMounted) return;
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Map _id to id for compatibility
+            const mappedUsers = (data.users || []).map((user: any) => ({
+              ...user,
+              id: user._id,
+              joinedDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown',
+              lastActive: user.lastActive || 'Never'
+            }));
+            setUsers(mappedUsers);
+            
+            // Update pagination info
+            if (data.pagination) {
+              setTotalPages(data.pagination.totalPages);
+              setTotalUsers(data.pagination.total);
+            }
+          } else if (response.status === 401) {
+            modal.showAlert(
+              'Session expired. Please login again.',
+              'warning',
+              'Session Expired'
+            );
+            router.push('/login?role=admin');
+          }
+        } catch (err: any) {
+          if (!isMounted) return;
+          
+          if (err.name === 'AbortError') {
+            modal.showAlert(
+              'Request timed out. Please check your internet connection.',
+              'error',
+              'Timeout Error'
+            );
+          } else {
+            console.error('Error fetching users:', err);
+            modal.showAlert(
+              'Failed to load users. Please try refreshing the page.',
+              'error',
+              'Error'
+            );
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    
+    fetchUsers();
+    
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [currentPage, filterRole, filterStatus, debouncedSearch, usersPerPage]);
   
-  useEffect(() => {
-    refreshUsers();
-  }, []);
-
-  // Filter users based on search and filters
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === 'All' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'All' || user.status === filterStatus;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
+  // Separate function for manual refresh (used by action buttons)
+  const refreshUsers = async () => {
     setCurrentPage(1);
-  }, [searchQuery, filterRole, filterStatus]);
+  };
 
   const getRoleColor = (role: string) => {
     switch(role) {
@@ -516,7 +573,10 @@ export default function UserManagementPage() {
               <div className="md:w-48">
                 <select
                   value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value)}
+                  onChange={(e) => {
+                    setFilterRole(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="All">All Roles</option>
@@ -530,7 +590,10 @@ export default function UserManagementPage() {
               <div className="md:w-48">
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="All">All Status</option>
@@ -581,7 +644,23 @@ export default function UserManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage).map((user) => (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+                          <p className="text-gray-500">Loading users...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center">
+                        <p className="text-gray-500">No users found</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((user) => (
                     <tr 
                       key={user.id} 
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -667,61 +746,87 @@ export default function UserManagementPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* No results */}
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No users found matching your criteria</p>
+            {/* Pagination */}
+            {users.length > 0 && (
+              <div className="mt-6 px-6 pb-6 flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Showing <span className="font-medium">{((currentPage - 1) * usersPerPage) + 1}</span> to <span className="font-medium">{Math.min(currentPage * usersPerPage, totalUsers)}</span> of <span className="font-medium">{totalUsers}</span> users
+                </p>
+                {totalPages > 1 && (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1 || isLoading}
+                    className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === 1 || isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  >
+                    Previous
+                  </button>
+                  {(() => {
+                    // Smart pagination: show first, last, current and nearby pages
+                    const pages = [];
+                    const maxVisible = 7; // Maximum number of page buttons to show
+                    
+                    if (totalPages <= maxVisible) {
+                      // Show all pages if total is small
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      // Show first page
+                      pages.push(1);
+                      
+                      // Calculate range around current page
+                      let start = Math.max(2, currentPage - 1);
+                      let end = Math.min(totalPages - 1, currentPage + 1);
+                      
+                      // Add ellipsis if there's a gap
+                      if (start > 2) pages.push('...');
+                      
+                      // Add pages around current
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      
+                      // Add ellipsis if there's a gap
+                      if (end < totalPages - 1) pages.push('...');
+                      
+                      // Show last page
+                      pages.push(totalPages);
+                    }
+                    
+                    return pages.map((page, idx) => 
+                      page === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 py-2 text-gray-500">...</span>
+                      ) : (
+                        <button 
+                          key={page}
+                          onClick={() => setCurrentPage(page as number)}
+                          disabled={isLoading}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page 
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    );
+                  })()}
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || isLoading}
+                    className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages || isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
               </div>
             )}
           </div>
-
-          {/* Pagination */}
-          {(() => {
-            const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-            const startIndex = (currentPage - 1) * usersPerPage;
-            const endIndex = Math.min(startIndex + usersPerPage, filteredUsers.length);
-            
-            return (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  Showing <span className="font-medium">{filteredUsers.length > 0 ? startIndex + 1 : 0}</span> to <span className="font-medium">{endIndex}</span> of <span className="font-medium">{filteredUsers.length}</span> users
-                </p>
-                {totalPages > 1 && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button 
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-gray-300 hover:bg-gray-50'}`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
         </div>
       </div>
 

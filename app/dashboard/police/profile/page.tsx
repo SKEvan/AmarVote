@@ -27,7 +27,10 @@ export default function ProfileEditPage() {
     const loadUserData = async () => {
       try {
         const userIdFromStorage = localStorage.getItem('currentUserId');
+        console.log('Loading police profile for user ID:', userIdFromStorage);
+        
         if (!userIdFromStorage) {
+          console.error('No user ID found in localStorage');
           router.push('/login?role=police');
           return;
         }
@@ -37,9 +40,11 @@ export default function ProfileEditPage() {
         const response = await fetchWithAuth('/api/users');
         if (response.ok) {
           const data = await response.json();
+          console.log('All users from API:', data.users?.length || 0);
           const user = (data.users || []).find((u: any) => u._id === userIdFromStorage);
           
           if (user) {
+            console.log('User found in database:', user);
             setProfileData({
               fullName: user.name || '',
               email: user.email || '',
@@ -53,7 +58,11 @@ export default function ProfileEditPage() {
             if (user.avatar) {
               setPreviewUrl(user.avatar);
             }
+          } else {
+            console.error('User not found in database with ID:', userIdFromStorage);
           }
+        } else {
+          console.error('Failed to fetch users:', response.status);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -113,16 +122,12 @@ export default function ProfileEditPage() {
         });
       }
       
-      // Update user in database
+      // Update user in database (only phone and avatar allowed)
       const response = await fetchWithAuth('/api/users', {
         method: 'PATCH',
         body: JSON.stringify({
           userId: userId,
-          name: profileData.fullName,
           phone: profileData.phone,
-          serviceId: profileData.badge,
-          rank: profileData.rank,
-          location: profileData.station,
           avatar: avatarDataUrl || '',
         }),
       });
@@ -168,7 +173,16 @@ export default function ProfileEditPage() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile data...</p>
+          </div>
+        </div>
+      ) : (
+      /* Main Content */
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <form onSubmit={handleSave}>
@@ -240,29 +254,31 @@ export default function ProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Full Name <span className="text-red-600">*</span>
+                    Full Name
                   </label>
                   <input
                     type="text"
                     name="fullName"
                     value={profileData.fullName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Email Address <span className="text-red-600">*</span>
+                    Email Address
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={profileData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
@@ -279,16 +295,17 @@ export default function ProfileEditPage() {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Badge Number <span className="text-red-600">*</span>
+                    Badge Number
                   </label>
                   <input
                     type="text"
                     name="badge"
                     value={profileData.badge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
               </div>
 
@@ -298,43 +315,53 @@ export default function ProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Posted Station <span className="text-red-600">*</span>
+                    Posted Station
                   </label>
                   <input
                     type="text"
                     name="station"
                     value={profileData.station}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    District <span className="text-red-600">*</span>
+                    District
                   </label>
                   <input
                     type="text"
                     name="district"
                     value={profileData.district}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Rank <span className="text-red-600">*</span>
+                    Rank
                   </label>
                   <input
                     type="text"
                     name="rank"
                     value={profileData.rank}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
+              </div>
+
+              {/* Info Notice */}
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Note:</strong> Only your profile photo and phone number can be updated. For other changes, please contact the Election Commission administrator.
+                </p>
               </div>
 
               {/* Action Buttons */}
@@ -357,6 +384,7 @@ export default function ProfileEditPage() {
           </form>
         </div>
       </div>
+      )}
     </div>
   );
 }

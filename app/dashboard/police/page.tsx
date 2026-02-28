@@ -40,8 +40,12 @@ export default function PoliceDashboard() {
           setOfficerIncidents(incidents);
           setAllIncidentsList(incidents);
           
-          // Filter active unacknowledged incidents
-          const unacknowledged = incidents.filter((inc: any) => inc.status !== 'Resolved' && inc.status !== 'Dismissed');
+          // Filter active unacknowledged incidents (exclude Reported, Resolved, and Dismissed)
+          const unacknowledged = incidents.filter((inc: any) => 
+            inc.status !== 'Reported' && 
+            inc.status !== 'Resolved' && 
+            inc.status !== 'Dismissed'
+          );
           setActiveUnacknowledgedIncidents(unacknowledged);
         }
       } catch (error) {
@@ -81,12 +85,23 @@ export default function PoliceDashboard() {
     }
 
     try {
-      const response = await fetch(`/api/incidents`, {
+      // Get current user info
+      const userStr = localStorage.getItem('user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+      const currentUserId = localStorage.getItem('currentUserId');
+
+      const response = await fetchWithAuth('/api/incidents', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           incidentId: acknowledgeIncidentId,
-          status: 'Under Investigation',
+          status: 'Reported',
+          acknowledgedBy: {
+            userId: currentUserId || '',
+            name: currentUser?.name || 'Unknown Officer',
+            role: 'Police'
+          },
+          acknowledgedAt: new Date().toISOString(),
+          acknowledgementNotes: handlingNotes,
           resolutionNotes: handlingNotes,
         }),
       });
@@ -110,7 +125,8 @@ export default function PoliceDashboard() {
         setHandlingNotes('');
         alert('Incident acknowledged successfully!');
       } else {
-        alert('Failed to acknowledge incident');
+        const errorData = await response.json();
+        alert('Failed to acknowledge incident: ' + (errorData.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error acknowledging incident:', error);
