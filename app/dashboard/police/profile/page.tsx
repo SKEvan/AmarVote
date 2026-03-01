@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import { useModal } from '@/hooks/useModal';
+import CustomModal from '@/components/shared/CustomModal';
 
 export default function ProfileEditPage() {
   const router = useRouter();
+  const modal = useModal();
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
@@ -90,10 +93,10 @@ export default function ProfileEditPage() {
           const url = URL.createObjectURL(file);
           setPreviewUrl(url);
         } else {
-          alert('Please upload an image file (JPG, PNG, etc.)');
+          modal.showAlert('Please upload an image file (JPG, PNG, etc.)', 'warning', 'Invalid File Type');
         }
       } else {
-        alert('Image size must be less than 5MB');
+        modal.showAlert('Image size must be less than 5MB', 'warning', 'File Too Large');
       }
     }
   };
@@ -144,14 +147,18 @@ export default function ProfileEditPage() {
         };
         localStorage.setItem('user', JSON.stringify(userData));
         
-        alert('Profile updated successfully!');
-        router.push('/dashboard/police');
+        modal.showAlert(
+          'Your profile information has been updated successfully.',
+          'success',
+          'Profile Updated!'
+        );
+        setTimeout(() => router.push('/dashboard/police'), 1500);
       } else {
-        alert('Failed to save profile. Please try again.');
+        modal.showAlert('Failed to save profile. Please try again.', 'error', 'Update Failed');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      modal.showAlert('Failed to save profile. Please try again.', 'error', 'Update Failed');
     }
   };
 
@@ -385,6 +392,19 @@ export default function ProfileEditPage() {
         </div>
       </div>
       )}
+      
+      {/* Custom Modal */}
+      <CustomModal
+        isOpen={modal.isOpen}
+        onClose={modal.handleClose}
+        title={modal.config.title}
+        message={modal.config.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        variant={modal.config.variant}
+        confirmText={modal.config.confirmText}
+        cancelText={modal.config.cancelText}
+      />
     </div>
   );
 }

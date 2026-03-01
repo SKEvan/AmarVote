@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import { useModal } from '@/hooks/useModal';
+import CustomModal from '@/components/shared/CustomModal';
 
 export default function OfficerProfileEditPage() {
   const router = useRouter();
+  const modal = useModal();
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
@@ -92,10 +95,10 @@ export default function OfficerProfileEditPage() {
           const url = URL.createObjectURL(file);
           setPreviewUrl(url);
         } else {
-          alert('Please upload an image file (JPG, PNG, etc.)');
+          modal.showAlert('Please upload an image file (JPG, PNG, etc.)', 'error');
         }
       } else {
-        alert('Image size must be less than 5MB');
+        modal.showAlert('Image size must be less than 5MB', 'error');
       }
     }
   };
@@ -150,11 +153,13 @@ export default function OfficerProfileEditPage() {
         localStorage.setItem('user', JSON.stringify(userData));
       }
       
-      alert('Profile updated successfully!');
-      router.push('/dashboard/officer');
+      modal.showAlert('Profile updated successfully!', 'success');
+      setTimeout(() => {
+        router.push('/dashboard/officer');
+      }, 1500);
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
+      modal.showAlert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.', 'error');
     }
   };
 
@@ -388,6 +393,18 @@ export default function OfficerProfileEditPage() {
         </div>
       </div>
       )}
+
+      <CustomModal 
+        isOpen={modal.isOpen}
+        onClose={modal.handleClose}
+        title={modal.config.title}
+        message={modal.config.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        variant={modal.config.variant}
+        confirmText={modal.config.confirmText}
+        cancelText={modal.config.cancelText}
+      />
     </div>
   );
 }
